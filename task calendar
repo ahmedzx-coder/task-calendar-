@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>📅 تقويم المهام الاحترافي – Pro Task Calendar</title>
-  <meta name="description" content="تقويم مهام احترافي عربي / إنجليزي مع Dark Mode، منبه بميزة التأجيل، إحصائيات، Streaks، أصوات مخصصة، وتصدير واستيراد المهام.">
+  <title>📅 تقويم المهام – Pro Task Calendar</title>
+  <meta name="description" content="تقويم مهام عربي / إنجليزي مع Dark Mode، منبه بميزة التأجيل، إحصائيات، Streaks، أصوات مخصصة، وتصدير واستيراد المهام.">
   
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -72,6 +72,10 @@
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #3498db; }
     .form-group textarea { resize: vertical; min-height: 60px; }
     
+    .task-search { margin-bottom: 10px; }
+    .task-search input { width: 100%; padding: 8px 12px; border-radius: 999px; border: 2px solid #e5e7eb; font-size: 13px; }
+    .task-search input:focus { outline: none; border-color: #3b82f6; }
+    
     .task-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; padding: 12px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .btn-filter { padding: 8px 14px; font-size: 13px; font-weight: 600; border-radius: 999px; background: #ffffff; color: #374151; border: 2px solid transparent; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: all 0.3s; cursor: pointer; }
     .btn-filter:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.18); background: #f9fafb; }
@@ -98,6 +102,17 @@
     .empty-state { text-align: center; padding: 60px 20px; color: #95a5a6; }
     .empty-state-icon { font-size: 64px; margin-bottom: 15px; opacity: 0.5; }
     
+    /* Timeline */
+    .timeline-list { margin-top: 8px; border-radius: 10px; border: 1px solid #e5e7eb; padding: 10px 12px; max-height: 260px; overflow-y: auto; }
+    .timeline-item { position: relative; padding: 6px 6px 6px 16px; margin-bottom: 4px; border-left: 3px solid #3b82f6; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .timeline-item.completed { opacity: 0.6; border-left-color: #9ca3af; }
+    .timeline-time { font-weight: 600; color: #1d4ed8; flex-shrink: 0; }
+    .timeline-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    
+    /* Progress bar */
+    .progress-bar-bg { width: 100%; height: 8px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin-top: 6px; }
+    .progress-bar-fill { height: 8px; border-radius: 999px; background: #10b981; width: 0%; transition: width 0.3s; }
+
     .toast { position: fixed; bottom: 20px; right: 20px; background: #2c3e50; color: white; padding: 15px 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideInRight 0.3s; z-index: 1000; max-width: 300px; }
     .toast.success { background: #27ae60; }
     .toast.error { background: #e74c3c; }
@@ -153,15 +168,28 @@
     body.dark-mode .today-task-time { color: #60a5fa; }
     body.dark-mode .task-item.task-completed { border-color: #4b5563; }
     body.dark-mode .task-item.task-completed .task-title, body.dark-mode .task-item.task-completed .task-info { color: #9ca3af; }
-    
+    body.dark-mode .task-search input { background: #020617; border-color: #1f2937; color: #e5e7eb; }
+    body.dark-mode .timeline-list { border-color:#1f2937; background:#020617; }
+    body.dark-mode .progress-bar-bg { background:#1f2937; }
+
+    /* تحسين للموبايل */
     @media (max-width: 900px) {
-      .content { grid-template-columns: 1fr; }
+      .content { grid-template-columns: 1fr; padding: 20px; }
       .header { padding: 15px 20px; }
       .header h1 { font-size: 20px; }
       .menu-toggle-btn { top: 12px; left: 12px; }
       .main-menu { top: 52px; left: 12px; }
       .task-filters { gap: 5px; padding: 10px; }
       .btn-filter { padding: 6px 10px; font-size: 12px; }
+    }
+
+    @media (max-width: 600px) {
+      .month-header { flex-direction: column; align-items: stretch; }
+      .month-title { order: -1; }
+      .today-task-pill { flex-direction: column; align-items: flex-start; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .content { padding: 15px; }
+      .calendar-grid { gap: 3px; }
     }
   </style>
 </head>
@@ -181,7 +209,7 @@
     </div>
     
     <div class="header">
-      <h1 id="appTitle">📅 تقويم المهام الاحترافي</h1>
+      <h1 id="appTitle">📅 تقويم المهام</h1>
     </div>
     
     <div class="content">
@@ -229,15 +257,51 @@
           <div class="form-group"><label id="labelTaskTitle">عنوان المهمة *</label><input type="text" id="taskTitle" placeholder="مثال: اجتماع مع العميل"></div>
           <div class="form-group"><label id="labelTaskDate">التاريخ *</label><input type="date" id="taskDate"></div>
           <div class="form-group"><label id="labelTaskTime">الوقت</label><input type="time" id="taskTime" value="09:00"></div>
-          <div class="form-group"><label id="labelTaskReminder">تذكير قبل الموعد</label><select id="taskReminder"><option value="0">بدون تذكير</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="30">30 دقيقة</option></select></div>
-          <div class="form-group"><label id="labelTaskPriority">الأولوية</label><select id="taskPriority"><option value="low">منخفضة 🟢</option><option value="medium" selected>متوسطة 🟡</option><option value="high">عالية 🔴</option></select></div>
-          <div class="form-group"><label id="labelTaskCategory">التصنيف</label><select id="taskCategory"><option value="work">عمل 💼</option><option value="personal">شخصي 🏠</option><option value="study">دراسة 📚</option><option value="health">صحة 💪</option><option value="other">أخرى ⭐</option></select></div>
+          <div class="form-group">
+            <label id="labelTaskReminder">تذكير قبل الموعد</label>
+            <select id="taskReminder">
+              <option value="0">بدون تذكير</option>
+              <option value="5">5 دقائق</option>
+              <option value="10">10 دقائق</option>
+              <option value="30">30 دقيقة</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="labelTaskRepeat">تكرار</label>
+            <select id="taskRepeatType">
+              <option value="none">بدون تكرار</option>
+              <option value="daily">يوميًا</option>
+              <option value="weekly">أسبوعيًا</option>
+              <option value="monthly">شهريًا</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="labelTaskPriority">الأولوية</label>
+            <select id="taskPriority">
+              <option value="low">منخفضة 🟢</option>
+              <option value="medium" selected>متوسطة 🟡</option>
+              <option value="high">عالية 🔴</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="labelTaskCategory">التصنيف</label>
+            <select id="taskCategory">
+              <option value="work">عمل 💼</option>
+              <option value="personal">شخصي 🏠</option>
+              <option value="study">دراسة 📚</option>
+              <option value="health">صحة 💪</option>
+              <option value="other">أخرى ⭐</option>
+            </select>
+          </div>
           <div class="form-group"><label id="labelTaskNotes">ملاحظات</label><textarea id="taskNotes" placeholder="أي معلومات إضافية..."></textarea></div>
           <button id="addTaskBtn" class="btn btn-success" style="width:100%;" onclick="addTask()">➕ إضافة المهمة</button>
         </div>
         
         <div>
           <div class="section-title" id="tasksSectionTitle">📋 مهام اليوم المحدد</div>
+          <div class="task-search">
+            <input type="text" id="taskSearchInput" placeholder="🔍 بحث في المهام...">
+          </div>
           <div class="task-filters">
             <button class="btn-filter active" data-filter="all" id="filterAllBtn">🌐 الكل</button>
             <button class="btn-filter" data-filter="work" id="filterWorkBtn">💼 عمل</button>
@@ -247,20 +311,1453 @@
             <button class="btn-filter" data-filter="other" id="filterOtherBtn">⭐ أخرى</button>
           </div>
           <div class="tasks-list" id="tasksList">
-            <div class="empty-state"><div class="empty-state-icon">📭</div><div>لا توجد مهام لهذا اليوم</div></div>
+            <div class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <div>لا توجد مهام لهذا اليوم</div>
+            </div>
           </div>
         </div>
+
+        <div>
+          <div class="section-title" id="timelineSectionTitle">⏱️ المخطط الزمني لليوم</div>
+          <div class="timeline-list" id="timelineList">
+            <div class="empty-state" style="padding:20px 10px;">
+              <div class="empty-state-icon" style="font-size:40px;">⏱️</div>
+              <div style="font-size:13px;">لا توجد مهام بزمن محدد لهذا اليوم</div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 
-  <div id="statsModal" class="modal"><div class="modal-content"><div class="modal-header"><span id="statsModalTitle">📊 تقرير الإحصائيات المفصل</span><span class="modal-close" onclick="closeStatsModal()">&times;</span></div><div id="statsContent"></div></div></div>
-  <div id="soundModal" class="modal"><div class="modal-content"><div class="modal-header"><span id="soundModalTitle">🔊 إعدادات الأصوات</span><span class="modal-close" onclick="closeSoundModal()">&times;</span></div><div class="form-group"><label id="labelAlarmSound">صوت المنبه:</label><select id="alarmSoundSelect"><option value="beep1">منبه بسيط 1</option><option value="beep2">منبه متدرج 2</option><option value="customAlarm">ملف مخصص</option><option value="none">بدون صوت</option></select></div><div class="form-group"><label id="labelAlarmFile">ملف صوت المنبه:</label><input type="file" id="alarmFileInput" accept="audio/*"></div><div class="form-group"><label id="labelCompleteSound">صوت الإنجاز:</label><select id="completeSoundSelect"><option value="beepSuccess">صوت إنجاز افتراضي</option><option value="customComplete">ملف مخصص</option><option value="none">بدون صوت</option></select></div><div class="form-group"><label id="labelCompleteFile">ملف صوت الإنجاز:</label><input type="file" id="completeFileInput" accept="audio/*"></div><div style="display:flex; gap:10px; margin-top:10px;"><button id="testAlarmBtn" class="btn btn-primary" onclick="testAlarmSound()">🔔 تجربة</button><button id="testCompleteBtn" class="btn btn-success" onclick="testCompleteSound()">✅ تجربة</button><button id="saveSoundBtn" class="btn btn-warning" style="margin-right:auto;" onclick="saveSoundSettingsFromUI()">💾 حفظ</button></div></div></div>
-  <div id="aboutModal" class="modal"><div class="modal-content"><div class="modal-header"><span id="aboutModalTitle">ℹ️ عن التطبيق</span><span class="modal-close" onclick="closeAboutModal()">&times;</span></div><div id="aboutContent"></div></div></div>
+  <!-- Modals -->
+  <div id="statsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="statsModalTitle">📊 تقرير الإحصائيات المفصل</span>
+        <span class="modal-close" onclick="closeStatsModal()">&times;</span>
+      </div>
+      <div id="statsContent"></div>
+    </div>
+  </div>
+
+  <div id="soundModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="soundModalTitle">🔊 إعدادات الأصوات</span>
+        <span class="modal-close" onclick="closeSoundModal()">&times;</span>
+      </div>
+      <div class="form-group">
+        <label id="labelAlarmSound">صوت المنبه:</label>
+        <select id="alarmSoundSelect">
+          <option value="beep1">منبه بسيط 1</option>
+          <option value="beep2">منبه متدرج 2</option>
+          <option value="customAlarm">ملف مخصص</option>
+          <option value="none">بدون صوت</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label id="labelAlarmFile">ملف صوت المنبه:</label>
+        <input type="file" id="alarmFileInput" accept="audio/*">
+      </div>
+      <div class="form-group">
+        <label id="labelCompleteSound">صوت الإنجاز:</label>
+        <select id="completeSoundSelect">
+          <option value="beepSuccess">صوت إنجاز افتراضي</option>
+          <option value="customComplete">ملف مخصص</option>
+          <option value="none">بدون صوت</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label id="labelCompleteFile">ملف صوت الإنجاز:</label>
+        <input type="file" id="completeFileInput" accept="audio/*">
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button id="testAlarmBtn" class="btn btn-primary" onclick="testAlarmSound()">🔔 تجربة</button>
+        <button id="testCompleteBtn" class="btn btn-success" onclick="testCompleteSound()">✅ تجربة</button>
+        <button id="saveSoundBtn" class="btn btn-warning" style="margin-right:auto;" onclick="saveSoundSettingsFromUI()">💾 حفظ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="aboutModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="aboutModalTitle">ℹ️ عن التطبيق</span>
+        <span class="modal-close" onclick="closeAboutModal()">&times;</span>
+      </div>
+      <div id="aboutContent"></div>
+    </div>
+  </div>
+
   <input type="file" id="importInput" accept=".json" style="display:none;" onchange="handleImport(event)">
 
   <script>
-let tasks=JSON.parse(localStorage.getItem('tasks'))||[];let completedTasks=JSON.parse(localStorage.getItem('completedTasks'))||[];let currentDate=new Date();let selectedDate=new Date();let viewMode='month';let currentCategoryFilter='all';const LANG_KEY='task-planner-lang-v1';const THEME_KEY='task-planner-theme-v1';const SOUND_SETTINGS_KEY='task-planner-sound-settings-v1';let currentLang=localStorage.getItem(LANG_KEY)||'ar';const monthNamesMap={ar:['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],en:['January','February','March','April','May','June','July','August','September','October','November','December']};const weekdaysMap={ar:['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'],en:['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']};const categoryIcons={work:'💼',personal:'🏠',study:'📚',health:'💪',other:'⭐'};const priorityIcons={low:'🟢',medium:'🟡',high:'🔴'};function getMonthNames(){return monthNamesMap[currentLang]||monthNamesMap.ar}function getWeekdays(){return weekdaysMap[currentLang]||weekdaysMap.ar}function toggleMainMenu(){document.getElementById('mainMenu').classList.toggle('hidden')}function closeMainMenu(){document.getElementById('mainMenu').classList.add('hidden')}document.addEventListener('click',(e)=>{const menu=document.getElementById('mainMenu');const btn=document.getElementById('menuToggleBtn');if(menu.classList.contains('hidden'))return;if(menu.contains(e.target)||btn.contains(e.target))return;menu.classList.add('hidden')});function updateThemeButtonLabel(){const btn=document.getElementById('themeToggleBtn');const isDark=document.body.classList.contains('dark-mode');if(!btn)return;btn.textContent=isDark?(currentLang==='ar'?'☀️ وضع النهار':'☀️ Light Mode'):(currentLang==='ar'?'🌙 الوضع الليلي':'🌙 Dark Mode')}function applyTheme(theme){if(theme==='dark')document.body.classList.add('dark-mode');else document.body.classList.remove('dark-mode');localStorage.setItem(THEME_KEY,theme);updateThemeButtonLabel()}function toggleTheme(){const isDark=document.body.classList.contains('dark-mode');applyTheme(isDark?'light':'dark')}function updateLangButtonLabel(){const btn=document.getElementById('langToggleBtn');if(!btn)return;btn.textContent=currentLang==='ar'?'EN':'عربي'}function applyLanguageStaticTexts(){const isAr=currentLang==='ar';document.documentElement.lang=isAr?'ar':'en';document.documentElement.dir=isAr?'rtl':'ltr';const els={appTitle:isAr?'📅 تقويم المهام الاحترافي':'📅 Pro Task Calendar',statsBoxTitle:isAr?'📊 الإحصائيات':'📊 Statistics',statLabelActiveTasks:isAr?'المهام النشطة':'Active tasks',statLabelTodayTasks:isAr?'مهام اليوم':'Today',statLabelWeekTasks:isAr?'هذا الأسبوع':'This week',statLabelMonthTasks:isAr?'هذا الشهر':'This month',statLabelCurrentStreak:isAr?'السلسلة الحالية':'Current streak',statLabelBestStreak:isAr?'أفضل سلسلة':'Best streak',statLabelWorkDay:isAr?'عمل اليوم':'Work today',statLabelWorkWeek:isAr?'عمل هذا الأسبوع':'Work this week',addTaskSectionTitle:isAr?'➕ إضافة مهمة جديدة':'➕ Add new task',labelTaskTitle:isAr?'عنوان المهمة *':'Task title *',labelTaskDate:isAr?'التاريخ *':'Date *',labelTaskTime:isAr?'الوقت':'Time',labelTaskReminder:isAr?'تذكير قبل الموعد':'Reminder',labelTaskPriority:isAr?'الأولوية':'Priority',labelTaskCategory:isAr?'التصنيف':'Category',labelTaskNotes:isAr?'ملاحظات':'Notes',addTaskBtn:isAr?'➕ إضافة المهمة':'➕ Add task',soundBtn:isAr?'🎛️ الأصوات':'🎛️ Sounds',statsHeaderBtn:isAr?'📊 الإحصائيات':'📊 Stats',exportBtnHeader:isAr?'💾 تصدير':'💾 Export',importBtnHeader:isAr?'📂 استيراد':'📂 Import',clearBtnHeader:isAr?'🗑️ مسح الكل':'🗑️ Clear all',aboutBtnHeader:isAr?'ℹ️ عن التطبيق':'ℹ️ About',todayBtn:isAr?'اليوم':'Today',filterAllBtn:isAr?'🌐 الكل':'🌐 All',filterWorkBtn:isAr?'💼 عمل':'💼 Work',filterPersonalBtn:isAr?'🏠 شخصي':'🏠 Personal',filterStudyBtn:isAr?'📚 دراسة':'📚 Study',filterHealthBtn:isAr?'💪 صحة':'💪 Health',filterOtherBtn:isAr?'⭐ أخرى':'⭐ Other'};Object.keys(els).forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=els[id]});const weekBtn=document.getElementById('viewModeWeekBtn');const monthBtn=document.getElementById('viewModeMonthBtn');if(weekBtn)weekBtn.textContent=isAr?'أسبوع':'Week';if(monthBtn)monthBtn.textContent=isAr?'شهر':'Month';renderCalendar();renderTasks();renderTodayTasks();updateStats();updateThemeButtonLabel();updateLangButtonLabel()}function toggleLanguage(){currentLang=currentLang==='ar'?'en':'ar';localStorage.setItem(LANG_KEY,currentLang);applyLanguageStaticTexts()}let soundSettings={alarmSound:'beep1',completeSound:'beepSuccess',customAlarmDataUrl:null,customCompleteDataUrl:null};let audioCtx=null;let alarmIntervalId=null;function loadSoundSettings(){try{const saved=localStorage.getItem(SOUND_SETTINGS_KEY);if(saved)soundSettings={...soundSettings,...JSON.parse(saved)}}catch{}}function saveSoundSettings(){try{localStorage.setItem(SOUND_SETTINGS_KEY,JSON.stringify(soundSettings))}catch{}}function openSoundModal(){document.getElementById('alarmSoundSelect').value=soundSettings.alarmSound||'beep1';document.getElementById('completeSoundSelect').value=soundSettings.completeSound||'beepSuccess';document.getElementById('soundModal').classList.add('active')}function closeSoundModal(){document.getElementById('soundModal').classList.remove('active')}function saveSoundSettingsFromUI(){soundSettings.alarmSound=document.getElementById('alarmSoundSelect').value;soundSettings.completeSound=document.getElementById('completeSoundSelect').value;saveSoundSettings();showToast(currentLang==='ar'?'🎧 تم حفظ إعدادات الصوت':'🎧 Settings saved','success')}function handleAlarmFileInput(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=(ev)=>{soundSettings.customAlarmDataUrl=ev.target.result;soundSettings.alarmSound='customAlarm';saveSoundSettings();showToast(currentLang==='ar'?'🔔 تم تحميل صوت المنبه':'🔔 Alarm sound loaded','success')};reader.readAsDataURL(file)}function handleCompleteFileInput(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=(ev)=>{soundSettings.customCompleteDataUrl=ev.target.result;soundSettings.completeSound='customComplete';saveSoundSettings();showToast(currentLang==='ar'?'✅ تم تحميل صوت الإنجاز':'✅ Success sound loaded','success')};reader.readAsDataURL(file)}function getAudioContext(){if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC()}return audioCtx}function playBeep(ctx,time,freq,duration,volume){const osc=ctx.createOscillator();const gain=ctx.createGain();osc.type='sine';osc.frequency.value=freq;osc.connect(gain);gain.connect(ctx.destination);gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(volume,time+0.01);gain.gain.linearRampToValueAtTime(0,time+duration);osc.start(time);osc.stop(time+duration+0.05)}function playAlarmSound(){if(soundSettings.alarmSound==='none')return;if(soundSettings.alarmSound==='customAlarm'&&soundSettings.customAlarmDataUrl){new Audio(soundSettings.customAlarmDataUrl).play().catch(()=>{});return}const ctx=getAudioContext();if(!ctx)return;const now=ctx.currentTime;if(soundSettings.alarmSound==='beep1'){playBeep(ctx,now,800,0.25,0.2);playBeep(ctx,now+0.35,800,0.25,0.2)}else if(soundSettings.alarmSound==='beep2'){playBeep(ctx,now,600,0.2,0.18);playBeep(ctx,now+0.25,900,0.2,0.18)}}function playCompleteSound(){if(soundSettings.completeSound==='none')return;if(soundSettings.completeSound==='customComplete'&&soundSettings.customCompleteDataUrl){new Audio(soundSettings.customCompleteDataUrl).play().catch(()=>{});return}const ctx=getAudioContext();if(!ctx)return;const now=ctx.currentTime;playBeep(ctx,now,600,0.15,0.18);playBeep(ctx,now+0.2,900,0.18,0.2);playBeep(ctx,now+0.4,1200,0.25,0.22)}function testAlarmSound(){playAlarmSound()}function testCompleteSound(){playCompleteSound()}function saveTasks(){localStorage.setItem('tasks',JSON.stringify(tasks));localStorage.setItem('completedTasks',JSON.stringify(completedTasks));renderCalendar();renderTasks();renderTodayTasks();updateStats()}function formatDate(date){const y=date.getFullYear();const m=String(date.getMonth()+1).padStart(2,'0');const d=String(date.getDate()).padStart(2,'0');return`${y}-${m}-${d}`}function formatDateDisplay(dateStr){const date=new Date(dateStr+'T00:00:00');const weekdays=getWeekdays();const months=getMonthNames();const weekday=weekdays[date.getDay()];const month=months[date.getMonth()];return currentLang==='ar'?`${weekday} ${date.getDate()} ${month} ${date.getFullYear()}`:`${weekday}, ${month} ${date.getDate()}, ${date.getFullYear()}`}function parseHHMMToMinutes(timeStr){if(!timeStr)return null;const parts=timeStr.split(':');if(parts.length<2)return null;const h=Number(parts[0]),m=Number(parts[1]);if(Number.isNaN(h)||Number.isNaN(m))return null;return h*60+m}function updateViewModeButtons(){const weekBtn=document.getElementById('viewModeWeekBtn');const monthBtn=document.getElementById('viewModeMonthBtn');[weekBtn,monthBtn].forEach(b=>b&&b.classList.remove('active'));if(viewMode==='week'&&weekBtn)weekBtn.classList.add('active');if(viewMode==='month'&&monthBtn)monthBtn.classList.add('active')}function setViewMode(mode){viewMode=mode;updateViewModeButtons();renderCalendar();renderTasks()}function updateFilterButtonsUI(){document.querySelectorAll('.btn-filter').forEach(btn=>{btn.classList.toggle('active',btn.dataset.filter===currentCategoryFilter)})}function setCategoryFilter(filter){currentCategoryFilter=filter;updateFilterButtonsUI();renderTasks()}document.addEventListener('click',(e)=>{const btn=e.target.closest('.btn-filter');if(!btn||!btn.dataset.filter)return;setCategoryFilter(btn.dataset.filter)});function renderCalendar(){const year=currentDate.getFullYear();const month=currentDate.getMonth();const months=getMonthNames();const weekdays=getWeekdays();const monthTitleEl=document.getElementById('monthTitle');if(monthTitleEl){monthTitleEl.textContent=viewMode==='week'?(currentLang==='ar'?'عرض الأسبوع':'Week view'):`${months[month]} ${year}`}const grid=document.getElementById('calendarGrid');if(!grid)return;grid.innerHTML='';if(viewMode==='week'){const sel=new Date(selectedDate);const startOfWeek=new Date(sel);startOfWeek.setDate(sel.getDate()-sel.getDay());const todayStr=formatDate(new Date());for(let i=0;i<7;i++){const d=new Date(startOfWeek);d.setDate(startOfWeek.getDate()+i);const header=document.createElement('div');header.className='weekday-header';header.textContent=weekdays[d.getDay()]+' '+d.getDate();grid.appendChild(header)}for(let i=0;i<7;i++){const d=new Date(startOfWeek);d.setDate(startOfWeek.getDate()+i);const dateStr=formatDate(d);const tasksCount=tasks.filter(t=>t.date===dateStr&&!t.completed).length;const cell=document.createElement('div');cell.className='day-cell';if(todayStr===dateStr)cell.classList.add('today');if(formatDate(selectedDate)===dateStr)cell.classList.add('selected');if(tasksCount>0)cell.classList.add('has-tasks');cell.innerHTML=`<div class="day-number">${d.getDate()}</div>${tasksCount>0?`<div class="task-count">• ${tasksCount}</div>`:''}`;cell.onclick=()=>selectDate(d);grid.appendChild(cell)}}else{weekdays.forEach(day=>{const header=document.createElement('div');header.className='weekday-header';header.textContent=day;grid.appendChild(header)});const firstDay=new Date(year,month,1).getDay();const daysInMonth=new Date(year,month+1,0).getDate();for(let i=0;i<firstDay;i++){grid.appendChild(document.createElement('div'))}for(let day=1;day<=daysInMonth;day++){const cell=document.createElement('div');cell.className='day-cell';const date=new Date(year,month,day);const dateStr=formatDate(date);const tasksCount=tasks.filter(t=>t.date===dateStr&&!t.completed).length;if(formatDate(new Date())===dateStr)cell.classList.add('today');if(formatDate(selectedDate)===dateStr)cell.classList.add('selected');if(tasksCount>0)cell.classList.add('has-tasks');cell.innerHTML=`<div class="day-number">${day}</div>${tasksCount>0?`<div class="task-count">• ${tasksCount}</div>`:''}`;cell.onclick=()=>selectDate(date);grid.appendChild(cell)}}}function selectDate(date){selectedDate=date;document.getElementById('taskDate').value=formatDate(date);renderCalendar();renderTasks()}function renderTodayTasks(){const box=document.getElementById('todayTasksList');const titleEl=document.getElementById('todayBoxTitle');if(!box)return;const todayStr=formatDate(new Date());const activeToday=tasks.filter(t=>t.date===todayStr&&!t.completed);if(currentLang==='ar'){if(titleEl)titleEl.textContent='📌 مهام اليوم'}else{if(titleEl)titleEl.textContent="📌 Today's tasks"}if(!activeToday.length){box.innerHTML=`<div style="font-size:13px; color:#6b7280;">${currentLang==='ar'?'لا توجد مهام نشطة لليوم 👌':'No active tasks for today 👌'}</div>`;return}const sorted=[...activeToday].sort((a,b)=>{const am=parseHHMMToMinutes(a.time)??0;const bm=parseHHMMToMinutes(b.time)??0;return am-bm});const limited=sorted.slice(0,4);box.innerHTML=limited.map(t=>`<div class="today-task-pill"><div class="today-task-left"><span class="today-task-time">${t.time||'--:--'}</span><span>${categoryIcons[t.category]||'⭐'}</span><span class="today-task-title">${t.title}</span></div><span style="font-size:11px;">${priorityIcons[t.priority]||''}</span></div>`).join('');if(sorted.length>4){const moreCount=sorted.length-4;box.innerHTML+=`<div style="margin-top:4px; font-size:11px; color:#6b7280;">${currentLang==='ar'?`ويوجد ${moreCount} مهمة أخرى...`:`${moreCount} more task(s)...`}</div>`}}function renderTasks(){const list=document.getElementById('tasksList');if(!list)return;let tasksToShow=[];let emptyText='';const sel=new Date(selectedDate);const selStr=formatDate(sel);if(viewMode==='week'){const weekStart=new Date(sel);weekStart.setDate(sel.getDate()-sel.getDay());const weekEnd=new Date(weekStart);weekEnd.setDate(weekEnd.getDate()+6);tasksToShow=tasks.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=weekStart&&d<=weekEnd});emptyText=currentLang==='ar'?'لا توجد مهام لهذا الأسبوع':'No tasks for this week'}else{tasksToShow=tasks.filter(t=>t.date===selStr);emptyText=currentLang==='ar'?'لا توجد مهام ليوم '+formatDateDisplay(selStr):'No tasks for '+formatDateDisplay(selStr)}if(currentCategoryFilter!=='all'){tasksToShow=tasksToShow.filter(t=>t.category===currentCategoryFilter)}tasksToShow.sort((a,b)=>{if(a.date<b.date)return-1;if(a.date>b.date)return 1;const am=parseHHMMToMinutes(a.time)||0;const bm=parseHHMMToMinutes(b.time)||0;return am-bm});if(tasksToShow.length===0){list.innerHTML=`<div class="empty-state"><div class="empty-state-icon">📭</div><div>${emptyText}</div></div>`;return}const showDateLabel=(viewMode==='week');list.innerHTML=tasksToShow.map(task=>{const classes=['task-item'];if(task.completed)classes.push('task-completed');const isCompleted=!!task.completed;const completeBtnLabel=currentLang==='ar'?(isCompleted?'↩ تراجع':'✓ تم الإنجاز'):(isCompleted?'↩ Undo':'✓ Done');const completeBtnHandler=isCompleted?`undoCompleteTask(${task.id})`:`completeTask(${task.id})`;return`<div class="${classes.join(' ')}"><div class="task-title">${categoryIcons[task.category]||'⭐'} ${task.title}</div><div class="task-info">${showDateLabel?`📅 ${formatDateDisplay(task.date)} | `:''} ⏰ ${task.time||'--:--'} | ${priorityIcons[task.priority]} ${currentLang==='ar'?(task.priority==='high'?'عالية':task.priority==='medium'?'متوسطة':'منخفضة'):(task.priority==='high'?'High':task.priority==='medium'?'Medium':'Low')} ${task.reminderMinutes&&task.reminderMinutes>0?(currentLang==='ar'?` | 🔔 تذكير قبل ${task.reminderMinutes} دقيقة`:` | 🔔 Reminder ${task.reminderMinutes} min before`):''}</div>${task.notes?`<div class="task-notes">📝 ${task.notes}</div>`:''}<div class="task-actions"><button class="btn ${isCompleted?'btn-secondary':'btn-success'} btn-small" onclick="${completeBtnHandler}">${completeBtnLabel}</button><button class="btn btn-danger btn-small" onclick="deleteTask(${task.id})">${currentLang==='ar'?'🗑 حذف':'🗑 Delete'}</button></div></div>`}).join('')}function addTask(){const title=document.getElementById('taskTitle').value.trim();const date=document.getElementById('taskDate').value;const time=document.getElementById('taskTime').value;const priority=document.getElementById('taskPriority').value;const category=document.getElementById('taskCategory').value;const notes=document.getElementById('taskNotes').value.trim();const reminderMinutes=parseInt(document.getElementById('taskReminder').value,10)||0;if(!title){showToast(currentLang==='ar'?'⚠️ من فضلك أدخل عنوان المهمة!':'⚠️ Please enter task title!','error');return}if(!date){showToast(currentLang==='ar'?'⚠️ من فضلك اختر التاريخ!':'⚠️ Please choose date!','error');return}const task={id:Date.now(),title,date,time,priority,category,notes,reminderMinutes,completed:false,reminderNotified:false,alarmNotified:false,createdAt:new Date().toISOString()};tasks.push(task);saveTasks();document.getElementById('taskTitle').value='';document.getElementById('taskNotes').value='';document.getElementById('taskTime').value='09:00';document.getElementById('taskReminder').value='0';showToast(currentLang==='ar'?'✅ تمت إضافة المهمة!':'✅ Task added!','success');showConfetti()}function completeTask(id){const idx=tasks.findIndex(t=>t.id===id);if(idx===-1)return;const task=tasks[idx];if(task.completed)return;task.completed=true;completedTasks.push({...task,completedAt:new Date().toISOString()});saveTasks();playCompleteSound();showConfetti();showToast(currentLang==='ar'?'🎉 أحسنت! تم إنجاز المهمة!':'🎉 Great job!','success')}function undoCompleteTask(id){const idx=tasks.findIndex(t=>t.id===id);if(idx===-1)return;const task=tasks[idx];if(!task.completed)return;task.completed=false;const compIndex=completedTasks.findIndex(t=>t.id===id);if(compIndex!==-1){completedTasks.splice(compIndex,1)}saveTasks();showToast(currentLang==='ar'?'↩ تم التراجع عن إنجاز المهمة.':'↩ Task marked as not completed.','warning')}function deleteTask(id){const msg=currentLang==='ar'?'هل أنت متأكد من حذف هذه المهمة؟':'Are you sure?';if(!confirm(msg))return;tasks=tasks.filter(t=>t.id!==id);completedTasks=completedTasks.filter(t=>t.id!==id);saveTasks();showToast(currentLang==='ar'?'🗑️ تم حذف المهمة':'🗑️ Task deleted','success')}function prevMonth(){currentDate.setMonth(currentDate.getMonth()-1);renderCalendar()}function nextMonth(){currentDate.setMonth(currentDate.getMonth()+1);renderCalendar()}function goToday(){currentDate=new Date();selectedDate=new Date();document.getElementById('taskDate').value=formatDate(new Date());renderCalendar();renderTasks();showToast(currentLang==='ar'?'📅 العودة لليوم الحالي':'📅 Back to today','success')}function getStreakInfo(){const dayCounts={};completedTasks.forEach(task=>{let dStr=null;if(task.completedAt)dStr=formatDate(new Date(task.completedAt));else if(task.date)dStr=task.date;if(!dStr)return;dayCounts[dStr]=(dayCounts[dStr]||0)+1});const today=new Date();let currentStreak=0;let cursor=new Date(today);while(true){const ds=formatDate(cursor);if(dayCounts[ds]&&dayCounts[ds]>0){currentStreak++;cursor.setDate(cursor.getDate()-1)}else break}const dayStrings=Object.keys(dayCounts).sort();let bestStreak=0,streak=0,prevDate=null;for(const ds of dayStrings){const d=new Date(ds+'T00:00:00');if(!prevDate)streak=1;else{const diffDays=Math.round((d-prevDate)/(1000*60*60*24));streak=diffDays===1?streak+1:1}if(streak>bestStreak)bestStreak=streak;prevDate=d}return{currentStreak,bestStreak}}function updateStats(){const today=formatDate(new Date());const activeTasks=tasks.filter(t=>!t.completed);const todayCount=activeTasks.filter(t=>t.date===today).length;const weekStart=new Date();weekStart.setDate(weekStart.getDate()-weekStart.getDay());const weekEnd=new Date(weekStart);weekEnd.setDate(weekEnd.getDate()+6);const weekCount=activeTasks.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=weekStart&&d<=weekEnd}).length;const monthCount=activeTasks.filter(t=>{const d=new Date(t.date+'T00:00:00');return d.getMonth()===currentDate.getMonth()&&d.getFullYear()===currentDate.getFullYear()}).length;const workTodayCount=activeTasks.filter(t=>t.date===today&&t.category==='work').length;const workWeekCount=activeTasks.filter(t=>{const d=new Date(t.date+'T00:00:00');return d>=weekStart&&d<=weekEnd&&t.category==='work'}).length;document.getElementById('totalTasks').textContent=activeTasks.length;document.getElementById('todayTasks').textContent=todayCount;document.getElementById('weekTasks').textContent=weekCount;document.getElementById('monthTasks').textContent=monthCount;document.getElementById('workDayTasksStat').textContent=workTodayCount;document.getElementById('workWeekTasksStat').textContent=workWeekCount;const{currentStreak,bestStreak}=getStreakInfo();document.getElementById('currentStreakStat').textContent=currentStreak;document.getElementById('bestStreakStat').textContent=bestStreak}function getCurrentMinutes(){const now=new Date();return now.getHours()*60+now.getMinutes()}function checkAlarms(){if(!tasks.length)return;const now=new Date();const todayStr=formatDate(now);const nowMin=getCurrentMinutes();const reminderTriggered=[];const alarmTriggered=[];let changed=false;tasks.forEach(t=>{if(!t.date||!t.time)return;if(t.date!==todayStr)return;const taskMin=parseHHMMToMinutes(t.time);if(taskMin==null)return;const rem=t.reminderMinutes||0;if(rem>0&&!t.reminderNotified&&nowMin>=(taskMin-rem)&&nowMin<taskMin){t.reminderNotified=true;reminderTriggered.push(t);changed=true}if(!t.alarmNotified&&nowMin>=taskMin){t.alarmNotified=true;alarmTriggered.push(t);changed=true}});if(changed){localStorage.setItem('tasks',JSON.stringify(tasks))}if(reminderTriggered.length){const titles=reminderTriggered.map(t=>t.title).join(currentLang==='ar'?'، ':',');showToast(currentLang==='ar'?'🔔 تذكير قبل الموعد للمهمة: '+titles:'🔔 Reminder for: '+titles,'warning');playAlarmSound()}if(alarmTriggered.length){showAlarmToast(alarmTriggered);playAlarmSound()}}function showAlarmToast(alarmTasks){const toast=document.createElement('div');toast.className='toast warning alarm-toast';const titleText=currentLang==='ar'?'⏰ حان وقت المهمة:':'⏰ Time for:';const openLabel=currentLang==='ar'?'فتح اليوم في الأسبوع':'Open in week view';const snoozeLabel=currentLang==='ar'?'تأجيل 5 دقائق':'Snooze 5 min';toast.innerHTML=`<div class="toast-message"><div class="toast-message-title">${titleText}</div><div class="toast-task-list">${alarmTasks.map(t=>`• ${t.title}`).join('<br>')}</div></div><div class="toast-actions"><button class="toast-btn toast-btn-secondary" data-action="snooze">${snoozeLabel}</button><button class="toast-btn toast-btn-primary" data-action="open">${openLabel}</button></div>`;toast.querySelector('.toast-actions').addEventListener('click',(e)=>{const btn=e.target.closest('button');if(!btn)return;if(btn.dataset.action==='open'){if(alarmTasks[0]&&alarmTasks[0].date){const d=new Date(alarmTasks[0].date+'T00:00:00');selectDate(d);setViewMode('week')}toast.remove()}if(btn.dataset.action==='snooze'){snoozeTasks(alarmTasks,5);toast.remove()}});document.body.appendChild(toast);setTimeout(()=>{if(!document.body.contains(toast))return;toast.style.animation='slideInRight 0.3s reverse';setTimeout(()=>toast.remove(),300)},60*1000)}function snoozeTasks(alarmTasks,minutes){const now=new Date();const nowMinutes=now.getHours()*60+now.getMinutes();const targetMinutes=nowMinutes+minutes;const newHour=Math.floor(targetMinutes/60)%24;const newMin=targetMinutes%60;const newTime=`${String(newHour).padStart(2,'0')}:${String(newMin).padStart(2,'0')}`;const todayStr=formatDate(now);alarmTasks.forEach(task=>{const idx=tasks.findIndex(t=>t.id===task.id);if(idx===-1)return;tasks[idx].date=todayStr;tasks[idx].time=newTime;tasks[idx].alarmNotified=false;if(tasks[idx].reminderMinutes>0)tasks[idx].reminderNotified=false});saveTasks();showToast(currentLang==='ar'?`😴 تم تأجيل المنبه ${minutes} دقائق`:`😴 Snoozed ${minutes} min`,'success')}function startAlarmTimer(){if(alarmIntervalId)clearInterval(alarmIntervalId);alarmIntervalId=setInterval(checkAlarms,30*1000);checkAlarms()}function exportTasks(){const data={exportedAt:new Date().toISOString(),tasks,completedTasks,stats:{totalTasks:tasks.length,completedTasks:completedTasks.length}};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(currentLang==='ar'?'مهامي-':'my-tasks-')+formatDate(new Date())+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);showToast(currentLang==='ar'?'💾 تم التصدير!':'💾 Exported!','success')}function importTasks(){document.getElementById('importInput').click()}function handleImport(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=(e)=>{try{const data=JSON.parse(e.target.result);if(data.tasks&&Array.isArray(data.tasks)){const existingIds=new Set(tasks.map(t=>t.id));const newTasks=data.tasks.filter(t=>!existingIds.has(t.id));tasks=[...tasks,...newTasks];if(data.completedTasks&&Array.isArray(data.completedTasks)){const existingCompletedIds=new Set(completedTasks.map(t=>t.id));const newCompleted=data.completedTasks.filter(t=>!existingCompletedIds.has(t.id));completedTasks=[...completedTasks,...newCompleted]}saveTasks();showToast(currentLang==='ar'?`📂 تم استيراد ${newTasks.length} مهمة!`:`📂 Imported ${newTasks.length} tasks!`,'success')}else{showToast(currentLang==='ar'?'⚠️ ملف غير صالح!':'⚠️ Invalid file!','error')}}catch(err){showToast(currentLang==='ar'?'❌ خطأ في القراءة!':'❌ Read error!','error')}};reader.readAsText(file);event.target.value=''}function clearAllTasks(){const msg1=currentLang==='ar'?'⚠️ هل أنت متأكد من حذف جميع المهام؟\n\nلا يمكن التراجع!':'⚠️ Delete ALL?\n\nCannot be undone!';const msg2=currentLang==='ar'?'⚠️ تأكيد نهائي: سيتم حذف كل المهام!':'⚠️ Final confirmation!';if(!confirm(msg1))return;if(!confirm(msg2))return;tasks=[];completedTasks=[];saveTasks();showToast(currentLang==='ar'?'🗑️ تم مسح جميع المهام':'🗑️ All tasks cleared','warning')}function openStatsModal(){const modal=document.getElementById('statsModal');const content=document.getElementById('statsContent');const isDark=document.body.classList.contains('dark-mode');const cardBg=isDark?'#020617':'#f8f9fa';const cardText=isDark?'#e5e7eb':'#111827';const cardBorder=isDark?'#1f2937':'#e0e0e0';const totalCompleted=completedTasks.length;const byPriority={high:completedTasks.filter(t=>t.priority==='high').length,medium:completedTasks.filter(t=>t.priority==='medium').length,low:completedTasks.filter(t=>t.priority==='low').length};const byCategory={work:completedTasks.filter(t=>t.category==='work').length,personal:completedTasks.filter(t=>t.category==='personal').length,study:completedTasks.filter(t=>t.category==='study').length,health:completedTasks.filter(t=>t.category==='health').length,other:completedTasks.filter(t=>t.category==='other').length};const{currentStreak,bestStreak}=getStreakInfo();if(currentLang==='ar'){content.innerHTML=`<div style="margin-bottom:20px;"><h3>📈 إحصائيات عامة</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">✅ المهام المنجزة: <strong>${totalCompleted}</strong></p><p style="margin:5px 0;">📝 المهام النشطة: <strong>${tasks.filter(t=>!t.completed).length}</strong></p></div></div><div style="margin-bottom:20px;"><h3>🔥 السلاسل</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">⚡ السلسلة الحالية: <strong>${currentStreak}</strong> يوم</p><p style="margin:5px 0;">🏆 أفضل سلسلة: <strong>${bestStreak}</strong> يوم</p></div></div><div style="margin-bottom:20px;"><h3>🎯 حسب الأولوية (المُنجزة)</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">🔴 عالية: <strong>${byPriority.high}</strong></p><p style="margin:5px 0;">🟡 متوسطة: <strong>${byPriority.medium}</strong></p><p style="margin:5px 0;">🟢 منخفضة: <strong>${byPriority.low}</strong></p></div></div><div style="margin-bottom:20px;"><h3>📁 حسب التصنيف (المُنجزة)</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">💼 عمل: <strong>${byCategory.work}</strong></p><p style="margin:5px 0;">🏠 شخصي: <strong>${byCategory.personal}</strong></p><p style="margin:5px 0;">📚 دراسة: <strong>${byCategory.study}</strong></p><p style="margin:5px 0;">💪 صحة: <strong>${byCategory.health}</strong></p><p style="margin:5px 0;">⭐ أخرى: <strong>${byCategory.other}</strong></p></div></div>`}else{content.innerHTML=`<div style="margin-bottom:20px;"><h3>📈 General stats</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">✅ Completed: <strong>${totalCompleted}</strong></p><p style="margin:5px 0;">📝 Active: <strong>${tasks.filter(t=>!t.completed).length}</strong></p></div></div><div style="margin-bottom:20px;"><h3>🔥 Streaks</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">⚡ Current: <strong>${currentStreak}</strong> days</p><p style="margin:5px 0;">🏆 Best: <strong>${bestStreak}</strong> days</p></div></div><div style="margin-bottom:20px;"><h3>🎯 By priority (completed)</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">🔴 High: <strong>${byPriority.high}</strong></p><p style="margin:5px 0;">🟡 Medium: <strong>${byPriority.medium}</strong></p><p style="margin:5px 0;">🟢 Low: <strong>${byPriority.low}</strong></p></div></div><div style="margin-bottom:20px;"><h3>📁 By category (completed)</h3><div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};"><p style="margin:5px 0;">💼 Work: <strong>${byCategory.work}</strong></p><p style="margin:5px 0;">🏠 Personal: <strong>${byCategory.personal}</strong></p><p style="margin:5px 0;">📚 Study: <strong>${byCategory.study}</strong></p><p style="margin:5px 0;">💪 Health: <strong>${byCategory.health}</strong></p><p style="margin:5px 0;">⭐ Other: <strong>${byCategory.other}</strong></p></div></div>`}modal.classList.add('active')}function closeStatsModal(){document.getElementById('statsModal').classList.remove('active')}function openAboutModal(){const modal=document.getElementById('aboutModal');const content=document.getElementById('aboutContent');if(currentLang==='ar'){content.innerHTML='<p style="margin-bottom:10px;">هذا التطبيق تم تطويره بواسطة <strong>أحمد عمرو (AHMED AMR)</strong>.</p><p style="margin-bottom:10px;">تقويم مهام يساعدك على تنظيم يومك، إضافة مهام، تذكيرات، إحصائيات، ووضع ليلي.</p><p style="margin-bottom:0;">شكرًا لاستخدامك التطبيق 💙</p>'}else{content.innerHTML='<p style="margin-bottom:10px;">This app was created by <strong>AHMED AMR</strong>.</p><p style="margin-bottom:10px;">A productivity calendar to organize your day, tasks, reminders, stats and dark mode.</p><p style="margin-bottom:0;">Thanks for using the app 💙</p>'}modal.classList.add('active')}function closeAboutModal(){document.getElementById('aboutModal').classList.remove('active')}function showToast(message,type='success'){const toast=document.createElement('div');toast.className=`toast ${type}`;toast.textContent=message;document.body.appendChild(toast);setTimeout(()=>{toast.style.animation='slideInRight 0.3s reverse';setTimeout(()=>toast.remove(),300)},3000)}function showConfetti(){const container=document.createElement('div');container.className='confetti-container';document.body.appendChild(container);const colors=['#f39c12','#e74c3c','#3498db','#2ecc71','#9b59b6'];for(let i=0;i<50;i++){setTimeout(()=>{const confetti=document.createElement('div');confetti.className='confetti';confetti.style.left=Math.random()*100+'%';confetti.style.background=colors[Math.floor(Math.random()*colors.length)];confetti.style.animationDelay=Math.random()*0.5+'s';container.appendChild(confetti)},i*30)}setTimeout(()=>container.remove(),3500)}document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();exportTasks()}if((e.ctrlKey||e.metaKey)&&e.key==='i'){e.preventDefault();importTasks()}if(e.key==='Escape'){closeStatsModal();closeSoundModal();closeAboutModal();closeMainMenu()}});document.getElementById('statsModal').addEventListener('click',e=>{if(e.target.id==='statsModal')closeStatsModal()});document.getElementById('soundModal').addEventListener('click',e=>{if(e.target.id==='soundModal')closeSoundModal()});document.getElementById('aboutModal').addEventListener('click',e=>{if(e.target.id==='aboutModal')closeAboutModal()});document.getElementById('alarmFileInput').addEventListener('change',handleAlarmFileInput);document.getElementById('completeFileInput').addEventListener('change',handleCompleteFileInput);loadSoundSettings();const savedTheme=localStorage.getItem(THEME_KEY)||'light';applyTheme(savedTheme);document.getElementById('taskDate').value=formatDate(new Date());updateViewModeButtons();updateFilterButtonsUI();renderCalendar();renderTasks();renderTodayTasks();updateStats();startAlarmTimer();applyLanguageStaticTexts();if(tasks.length===0&&completedTasks.length===0){setTimeout(()=>{showToast(currentLang==='ar'?'👋 مرحباً! ابدأ بإضافة مهمتك الأولى':'👋 Welcome! Start adding tasks','success')},500)}
-</script>
+    // ================== المتغيرات الأساسية ==================
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    let completedTasks = JSON.parse(localStorage.getItem('completedTasks')) || [];
+    let currentDate = new Date();
+    let selectedDate = new Date();
+    let viewMode = 'month';
+    let currentCategoryFilter = 'all';
+    let currentSearchQuery = '';
+
+    const LANG_KEY = 'task-planner-lang-v1';
+    const THEME_KEY = 'task-planner-theme-v1';
+    const SOUND_SETTINGS_KEY = 'task-planner-sound-settings-v1';
+    const MONTHLY_GOAL_KEY = 'task-planner-monthly-goal-v1';
+
+    let currentLang = localStorage.getItem(LANG_KEY) || 'ar';
+    let monthlyGoal = parseInt(localStorage.getItem(MONTHLY_GOAL_KEY) || '30', 10);
+
+    const monthNamesMap = {
+      ar: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
+      en: ['January','February','March','April','May','June','July','August','September','October','November','December']
+    };
+    const weekdaysMap = {
+      ar: ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'],
+      en: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+    };
+
+    const categoryIcons = { work:'💼', personal:'🏠', study:'📚', health:'💪', other:'⭐' };
+    const priorityIcons = { low:'🟢', medium:'🟡', high:'🔴' };
+
+    function getMonthNames(){ return monthNamesMap[currentLang] || monthNamesMap.ar; }
+    function getWeekdays(){ return weekdaysMap[currentLang] || weekdaysMap.ar; }
+
+    // ================== القائمة الرئيسية ==================
+    function toggleMainMenu(){
+      document.getElementById('mainMenu').classList.toggle('hidden');
+    }
+    function closeMainMenu(){
+      document.getElementById('mainMenu').classList.add('hidden');
+    }
+    document.addEventListener('click',(e)=>{
+      const menu = document.getElementById('mainMenu');
+      const btn = document.getElementById('menuToggleBtn');
+      if(menu.classList.contains('hidden')) return;
+      if(menu.contains(e.target) || btn.contains(e.target)) return;
+      menu.classList.add('hidden');
+    });
+
+    // ================== الثيم (الوضع الليلي) ==================
+    function updateThemeButtonLabel(){
+      const btn = document.getElementById('themeToggleBtn');
+      const isDark = document.body.classList.contains('dark-mode');
+      if(!btn) return;
+      btn.textContent = isDark 
+        ? (currentLang === 'ar' ? '☀️ وضع النهار' : '☀️ Light Mode')
+        : (currentLang === 'ar' ? '🌙 الوضع الليلي' : '🌙 Dark Mode');
+    }
+
+    function applyTheme(theme){
+      if(theme === 'dark') document.body.classList.add('dark-mode');
+      else document.body.classList.remove('dark-mode');
+      localStorage.setItem(THEME_KEY, theme);
+      updateThemeButtonLabel();
+    }
+
+    function toggleTheme(){
+      const isDark = document.body.classList.contains('dark-mode');
+      applyTheme(isDark ? 'light' : 'dark');
+    }
+
+    // ================== اللغة ==================
+    function updateLangButtonLabel(){
+      const btn = document.getElementById('langToggleBtn');
+      if(!btn) return;
+      btn.textContent = currentLang === 'ar' ? 'EN' : 'عربي';
+    }
+
+    function applyLanguageStaticTexts(){
+      const isAr = currentLang === 'ar';
+      document.documentElement.lang = isAr ? 'ar' : 'en';
+      document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+
+      const texts = {
+        appTitle: isAr ? '📅 تقويم المهام' : '📅 Pro Task Calendar',
+        statsBoxTitle: isAr ? '📊 الإحصائيات' : '📊 Statistics',
+        statLabelActiveTasks: isAr ? 'المهام النشطة' : 'Active tasks',
+        statLabelTodayTasks: isAr ? 'مهام اليوم' : 'Today',
+        statLabelWeekTasks: isAr ? 'هذا الأسبوع' : 'This week',
+        statLabelMonthTasks: isAr ? 'هذا الشهر' : 'This month',
+        statLabelCurrentStreak: isAr ? 'السلسلة الحالية' : 'Current streak',
+        statLabelBestStreak: isAr ? 'أفضل سلسلة' : 'Best streak',
+        statLabelWorkDay: isAr ? 'عمل اليوم' : 'Work today',
+        statLabelWorkWeek: isAr ? 'عمل هذا الأسبوع' : 'Work this week',
+        addTaskSectionTitle: isAr ? '➕ إضافة مهمة جديدة' : '➕ Add new task',
+        labelTaskTitle: isAr ? 'عنوان المهمة *' : 'Task title *',
+        labelTaskDate: isAr ? 'التاريخ *' : 'Date *',
+        labelTaskTime: isAr ? 'الوقت' : 'Time',
+        labelTaskReminder: isAr ? 'تذكير قبل الموعد' : 'Reminder',
+        labelTaskRepeat: isAr ? 'تكرار' : 'Repeat',
+        labelTaskPriority: isAr ? 'الأولوية' : 'Priority',
+        labelTaskCategory: isAr ? 'التصنيف' : 'Category',
+        labelTaskNotes: isAr ? 'ملاحظات' : 'Notes',
+        addTaskBtn: isAr ? '➕ إضافة المهمة' : '➕ Add task',
+        soundBtn: isAr ? '🎛️ الأصوات' : '🎛️ Sounds',
+        statsHeaderBtn: isAr ? '📊 الإحصائيات' : '📊 Stats',
+        exportBtnHeader: isAr ? '💾 تصدير' : '💾 Export',
+        importBtnHeader: isAr ? '📂 استيراد' : '📂 Import',
+        clearBtnHeader: isAr ? '🗑️ مسح الكل' : '🗑️ Clear all',
+        aboutBtnHeader: isAr ? 'ℹ️ عن التطبيق' : 'ℹ️ About',
+        todayBtn: isAr ? 'اليوم' : 'Today',
+        filterAllBtn: isAr ? '🌐 الكل' : '🌐 All',
+        filterWorkBtn: isAr ? '💼 عمل' : '💼 Work',
+        filterPersonalBtn: isAr ? '🏠 شخصي' : '🏠 Personal',
+        filterStudyBtn: isAr ? '📚 دراسة' : '📚 Study',
+        filterHealthBtn: isAr ? '💪 صحة' : '💪 Health',
+        filterOtherBtn: isAr ? '⭐ أخرى' : '⭐ Other',
+        tasksSectionTitle: isAr ? '📋 مهام اليوم المحدد' : '📋 Selected day tasks',
+        todayBoxTitle: isAr ? '📌 مهام اليوم' : "📌 Today's tasks",
+        timelineSectionTitle: isAr ? '⏱️ المخطط الزمني لليوم' : '⏱️ Day timeline'
+      };
+
+      Object.keys(texts).forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) el.textContent = texts[id];
+      });
+
+      const weekBtn = document.getElementById('viewModeWeekBtn');
+      const monthBtn = document.getElementById('viewModeMonthBtn');
+      if(weekBtn) weekBtn.textContent = isAr ? 'أسبوع' : 'Week';
+      if(monthBtn) monthBtn.textContent = isAr ? 'شهر' : 'Month';
+
+      const searchInput = document.getElementById('taskSearchInput');
+      if(searchInput){
+        searchInput.placeholder = isAr ? '🔍 بحث في المهام...' : '🔍 Search tasks...';
+      }
+
+      renderCalendar();
+      renderTasks();
+      renderTodayTasks();
+      renderTimeline();
+      updateStats();
+      updateThemeButtonLabel();
+      updateLangButtonLabel();
+    }
+
+    function toggleLanguage(){
+      currentLang = currentLang === 'ar' ? 'en' : 'ar';
+      localStorage.setItem(LANG_KEY, currentLang);
+      applyLanguageStaticTexts();
+    }
+
+    // ================== الأصوات ==================
+    let soundSettings = {
+      alarmSound: 'beep1',
+      completeSound: 'beepSuccess',
+      customAlarmDataUrl: null,
+      customCompleteDataUrl: null
+    };
+    let audioCtx = null;
+    let alarmIntervalId = null;
+
+    function loadSoundSettings(){
+      try {
+        const saved = localStorage.getItem(SOUND_SETTINGS_KEY);
+        if(saved) soundSettings = {...soundSettings, ...JSON.parse(saved)};
+      } catch {}
+    }
+    function saveSoundSettings(){
+      try {
+        localStorage.setItem(SOUND_SETTINGS_KEY, JSON.stringify(soundSettings));
+      } catch {}
+    }
+
+    function openSoundModal(){
+      document.getElementById('alarmSoundSelect').value = soundSettings.alarmSound || 'beep1';
+      document.getElementById('completeSoundSelect').value = soundSettings.completeSound || 'beepSuccess';
+      document.getElementById('soundModal').classList.add('active');
+    }
+    function closeSoundModal(){
+      document.getElementById('soundModal').classList.remove('active');
+    }
+
+    function saveSoundSettingsFromUI(){
+      soundSettings.alarmSound = document.getElementById('alarmSoundSelect').value;
+      soundSettings.completeSound = document.getElementById('completeSoundSelect').value;
+      saveSoundSettings();
+      showToast(currentLang==='ar'?'🎧 تم حفظ إعدادات الصوت':'🎧 Settings saved','success');
+    }
+
+    function handleAlarmFileInput(e){
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ev=>{
+        soundSettings.customAlarmDataUrl = ev.target.result;
+        soundSettings.alarmSound = 'customAlarm';
+        saveSoundSettings();
+        showToast(currentLang==='ar'?'🔔 تم تحميل صوت المنبه':'🔔 Alarm sound loaded','success');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleCompleteFileInput(e){
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ev=>{
+        soundSettings.customCompleteDataUrl = ev.target.result;
+        soundSettings.completeSound = 'customComplete';
+        saveSoundSettings();
+        showToast(currentLang==='ar'?'✅ تم تحميل صوت الإنجاز':'✅ Success sound loaded','success');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function getAudioContext(){
+      if(!audioCtx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(AC) audioCtx = new AC();
+      }
+      return audioCtx;
+    }
+
+    function playBeep(ctx, time, freq, duration, volume){
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(volume, time+0.01);
+      gain.gain.linearRampToValueAtTime(0, time+duration);
+      osc.start(time);
+      osc.stop(time+duration+0.05);
+    }
+
+    function playAlarmSound(){
+      if(soundSettings.alarmSound === 'none') return;
+      if(soundSettings.alarmSound === 'customAlarm' && soundSettings.customAlarmDataUrl){
+        new Audio(soundSettings.customAlarmDataUrl).play().catch(()=>{});
+        return;
+      }
+      const ctx = getAudioContext();
+      if(!ctx) return;
+      const now = ctx.currentTime;
+      if(soundSettings.alarmSound === 'beep1'){
+        playBeep(ctx, now, 800, 0.25, 0.2);
+        playBeep(ctx, now+0.35, 800, 0.25, 0.2);
+      } else if(soundSettings.alarmSound === 'beep2'){
+        playBeep(ctx, now, 600, 0.2, 0.18);
+        playBeep(ctx, now+0.25, 900, 0.2, 0.18);
+      }
+    }
+
+    function playCompleteSound(){
+      if(soundSettings.completeSound === 'none') return;
+      if(soundSettings.completeSound === 'customComplete' && soundSettings.customCompleteDataUrl){
+        new Audio(soundSettings.customCompleteDataUrl).play().catch(()=>{});
+        return;
+      }
+      const ctx = getAudioContext();
+      if(!ctx) return;
+      const now = ctx.currentTime;
+      playBeep(ctx, now, 600, 0.15, 0.18);
+      playBeep(ctx, now+0.2, 900, 0.18, 0.2);
+      playBeep(ctx, now+0.4, 1200, 0.25, 0.22);
+    }
+
+    function testAlarmSound(){ playAlarmSound(); }
+    function testCompleteSound(){ playCompleteSound(); }
+
+    // ================== حفظ/تحميل المهام ==================
+    function saveTasks(shouldRender = true){
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+      if(shouldRender){
+        renderCalendar();
+        renderTasks();
+        renderTodayTasks();
+        renderTimeline();
+        updateStats();
+      }
+    }
+
+    function formatDate(date){
+      const y = date.getFullYear();
+      const m = String(date.getMonth()+1).padStart(2,'0');
+      const d = String(date.getDate()).padStart(2,'0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatDateDisplay(dateStr){
+      const date = new Date(dateStr+'T00:00:00');
+      const weekdays = getWeekdays();
+      const months = getMonthNames();
+      const weekday = weekdays[date.getDay()];
+      const month = months[date.getMonth()];
+      return currentLang==='ar'
+        ? `${weekday} ${date.getDate()} ${month} ${date.getFullYear()}`
+        : `${weekday}, ${month} ${date.getDate()}, ${date.getFullYear()}`;
+    }
+
+    function parseHHMMToMinutes(timeStr){
+      if(!timeStr) return null;
+      const parts = timeStr.split(':');
+      if(parts.length < 2) return null;
+      const h = Number(parts[0]);
+      const m = Number(parts[1]);
+      if(Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h*60 + m;
+    }
+
+    // ================== عرض التقويم ==================
+    function updateViewModeButtons(){
+      const weekBtn = document.getElementById('viewModeWeekBtn');
+      const monthBtn = document.getElementById('viewModeMonthBtn');
+      [weekBtn, monthBtn].forEach(b=>b && b.classList.remove('active'));
+      if(viewMode === 'week' && weekBtn) weekBtn.classList.add('active');
+      if(viewMode === 'month' && monthBtn) monthBtn.classList.add('active');
+    }
+
+    function setViewMode(mode){
+      viewMode = mode;
+      updateViewModeButtons();
+      renderCalendar();
+      renderTasks();
+      renderTimeline();
+    }
+
+    function updateFilterButtonsUI(){
+      document.querySelectorAll('.btn-filter').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.filter === currentCategoryFilter);
+      });
+    }
+
+    function setCategoryFilter(filter){
+      currentCategoryFilter = filter;
+      updateFilterButtonsUI();
+      renderTasks();
+      renderTimeline();
+    }
+
+    document.addEventListener('click',e=>{
+      const btn = e.target.closest('.btn-filter');
+      if(!btn || !btn.dataset.filter) return;
+      setCategoryFilter(btn.dataset.filter);
+    });
+
+    function renderCalendar(){
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const months = getMonthNames();
+      const weekdays = getWeekdays();
+      const monthTitleEl = document.getElementById('monthTitle');
+
+      if(monthTitleEl){
+        monthTitleEl.textContent = viewMode==='week'
+          ? (currentLang==='ar'?'عرض الأسبوع':'Week view')
+          : `${months[month]} ${year}`;
+      }
+
+      const grid = document.getElementById('calendarGrid');
+      if(!grid) return;
+      grid.innerHTML = '';
+
+      const todayStr = formatDate(new Date());
+
+      if(viewMode === 'week'){
+        const sel = new Date(selectedDate);
+        const startOfWeek = new Date(sel);
+        startOfWeek.setDate(sel.getDate() - sel.getDay());
+
+        for(let i=0;i<7;i++){
+          const d = new Date(startOfWeek);
+          d.setDate(startOfWeek.getDate()+i);
+          const header = document.createElement('div');
+          header.className = 'weekday-header';
+          header.textContent = `${weekdays[d.getDay()]} ${d.getDate()}`;
+          grid.appendChild(header);
+        }
+
+        for(let i=0;i<7;i++){
+          const d = new Date(startOfWeek);
+          d.setDate(startOfWeek.getDate()+i);
+          const dateStr = formatDate(d);
+          const tasksCount = tasks.filter(t=>t.date===dateStr && !t.completed).length;
+          const cell = document.createElement('div');
+          cell.className = 'day-cell';
+          if(todayStr === dateStr) cell.classList.add('today');
+          if(formatDate(selectedDate) === dateStr) cell.classList.add('selected');
+          if(tasksCount>0) cell.classList.add('has-tasks');
+          cell.innerHTML = `
+            <div class="day-number">${d.getDate()}</div>
+            ${tasksCount>0?`<div class="task-count">• ${tasksCount}</div>`:''}
+          `;
+          cell.onclick = ()=>selectDate(d);
+          grid.appendChild(cell);
+        }
+      } else {
+        weekdays.forEach(day=>{
+          const header = document.createElement('div');
+          header.className = 'weekday-header';
+          header.textContent = day;
+          grid.appendChild(header);
+        });
+
+        const firstDay = new Date(year,month,1).getDay();
+        const daysInMonth = new Date(year,month+1,0).getDate();
+
+        for(let i=0;i<firstDay;i++){
+          grid.appendChild(document.createElement('div'));
+        }
+
+        for(let day=1;day<=daysInMonth;day++){
+          const cell = document.createElement('div');
+          cell.className = 'day-cell';
+          const date = new Date(year,month,day);
+          const dateStr = formatDate(date);
+          const tasksCount = tasks.filter(t=>t.date===dateStr && !t.completed).length;
+
+          if(todayStr === dateStr) cell.classList.add('today');
+          if(formatDate(selectedDate) === dateStr) cell.classList.add('selected');
+          if(tasksCount>0) cell.classList.add('has-tasks');
+
+          cell.innerHTML = `
+            <div class="day-number">${day}</div>
+            ${tasksCount>0?`<div class="task-count">• ${tasksCount}</div>`:''}
+          `;
+          cell.onclick = ()=>selectDate(date);
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    function selectDate(date){
+      selectedDate = date;
+      const dateInput = document.getElementById('taskDate');
+      if(dateInput) dateInput.value = formatDate(date);
+      renderCalendar();
+      renderTasks();
+      renderTimeline();
+    }
+
+    // ================== مهام اليوم (الصندوق الصغير) ==================
+    function renderTodayTasks(){
+      const box = document.getElementById('todayTasksList');
+      const titleEl = document.getElementById('todayBoxTitle');
+      if(!box) return;
+      const todayStr = formatDate(new Date());
+      const activeToday = tasks.filter(t=>t.date===todayStr && !t.completed);
+
+      if(currentLang==='ar'){
+        if(titleEl) titleEl.textContent = '📌 مهام اليوم';
+      } else {
+        if(titleEl) titleEl.textContent = "📌 Today's tasks";
+      }
+
+      if(!activeToday.length){
+        box.innerHTML = `<div style="font-size:13px; color:#6b7280;">${
+          currentLang==='ar'?'لا توجد مهام نشطة لليوم 👌':'No active tasks for today 👌'
+        }</div>`;
+        return;
+      }
+
+      const sorted = [...activeToday].sort((a,b)=>{
+        const am = parseHHMMToMinutes(a.time) ?? 0;
+        const bm = parseHHMMToMinutes(b.time) ?? 0;
+        return am - bm;
+      });
+      const limited = sorted.slice(0,4);
+
+      box.innerHTML = limited.map(t=>`
+        <div class="today-task-pill">
+          <div class="today-task-left">
+            <span class="today-task-time">${t.time || '--:--'}</span>
+            <span>${categoryIcons[t.category] || '⭐'}</span>
+            <span class="today-task-title">${t.title}</span>
+          </div>
+          <span style="font-size:11px;">${priorityIcons[t.priority] || ''}</span>
+        </div>
+      `).join('');
+
+      if(sorted.length>4){
+        const moreCount = sorted.length-4;
+        box.innerHTML += `<div style="margin-top:4px; font-size:11px; color:#6b7280;">${
+          currentLang==='ar'
+            ? `ويوجد ${moreCount} مهمة أخرى...`
+            : `${moreCount} more task(s)...`
+        }</div>`;
+      }
+    }
+
+    // ================== Timeline ==================
+    function renderTimeline(){
+      const list = document.getElementById('timelineList');
+      if(!list) return;
+      const selStr = formatDate(selectedDate);
+      let dayTasks = tasks.filter(t=>t.date===selStr);
+
+      if(currentCategoryFilter!=='all'){
+        dayTasks = dayTasks.filter(t=>t.category===currentCategoryFilter);
+      }
+
+      dayTasks = dayTasks.filter(t=>t.time && t.time.trim()!=='');
+      if(currentSearchQuery.trim()!==''){
+        const q = currentSearchQuery.toLowerCase();
+        dayTasks = dayTasks.filter(t=>
+          (t.title && t.title.toLowerCase().includes(q)) ||
+          (t.notes && t.notes.toLowerCase().includes(q))
+        );
+      }
+
+      if(!dayTasks.length){
+        list.innerHTML = `
+          <div class="empty-state" style="padding:20px 10px;">
+            <div class="empty-state-icon" style="font-size:40px;">⏱️</div>
+            <div style="font-size:13px;">
+              ${currentLang==='ar'
+                ? 'لا توجد مهام بزمن محدد لهذا اليوم'
+                : 'No timed tasks for this day'}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const sorted = [...dayTasks].sort((a,b)=>{
+        const am = parseHHMMToMinutes(a.time) ?? 0;
+        const bm = parseHHMMToMinutes(b.time) ?? 0;
+        return am - bm;
+      });
+
+      list.innerHTML = sorted.map(t=>{
+        const isCompleted = !!t.completed;
+        return `
+          <div class="timeline-item ${isCompleted?'completed':''}">
+            <span class="timeline-time">${t.time || '--:--'}</span>
+            <span class="timeline-title">${categoryIcons[t.category]||'⭐'} ${t.title}</span>
+            <span style="font-size:11px;">${priorityIcons[t.priority]||''}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================== عرض المهام ==================
+    function renderTasks(){
+      const list = document.getElementById('tasksList');
+      if(!list) return;
+
+      let tasksToShow = [];
+      let emptyText = '';
+
+      const sel = new Date(selectedDate);
+      const selStr = formatDate(sel);
+
+      if(viewMode==='week'){
+        const weekStart = new Date(sel);
+        weekStart.setDate(sel.getDate()-sel.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate()+6);
+
+        tasksToShow = tasks.filter(t=>{
+          const d = new Date(t.date+'T00:00:00');
+          return d>=weekStart && d<=weekEnd;
+        });
+        emptyText = currentLang==='ar'?'لا توجد مهام لهذا الأسبوع':'No tasks for this week';
+      } else {
+        tasksToShow = tasks.filter(t=>t.date===selStr);
+        emptyText = currentLang==='ar'
+          ? 'لا توجد مهام ليوم '+formatDateDisplay(selStr)
+          : 'No tasks for '+formatDateDisplay(selStr);
+      }
+
+      if(currentCategoryFilter!=='all'){
+        tasksToShow = tasksToShow.filter(t=>t.category===currentCategoryFilter);
+      }
+
+      if(currentSearchQuery.trim()!==''){
+        const q = currentSearchQuery.toLowerCase();
+        tasksToShow = tasksToShow.filter(t=>
+          (t.title && t.title.toLowerCase().includes(q)) ||
+          (t.notes && t.notes.toLowerCase().includes(q))
+        );
+      }
+
+      tasksToShow.sort((a,b)=>{
+        if(a.date < b.date) return -1;
+        if(a.date > b.date) return 1;
+        const am = parseHHMMToMinutes(a.time) || 0;
+        const bm = parseHHMMToMinutes(b.time) || 0;
+        return am - bm;
+      });
+
+      if(tasksToShow.length===0){
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div>${emptyText}</div>
+          </div>
+        `;
+        return;
+      }
+
+      const showDateLabel = (viewMode==='week');
+
+      list.innerHTML = tasksToShow.map(task=>{
+        const classes = ['task-item'];
+        if(task.completed) classes.push('task-completed');
+
+        const isCompleted = !!task.completed;
+        const completeBtnLabel = currentLang==='ar'
+          ? (isCompleted?'↩ تراجع':'✓ تم الإنجاز')
+          : (isCompleted?'↩ Undo':'✓ Done');
+
+        const priorityText = currentLang==='ar'
+          ? (task.priority==='high'?'عالية':task.priority==='medium'?'متوسطة':'منخفضة')
+          : (task.priority==='high'?'High':task.priority==='medium'?'Medium':'Low');
+
+        const reminderText = task.reminderMinutes && task.reminderMinutes>0
+          ? (currentLang==='ar'
+              ? ` | 🔔 تذكير قبل ${task.reminderMinutes} دقيقة`
+              : ` | 🔔 Reminder ${task.reminderMinutes} min before`)
+          : '';
+
+        return `
+          <div class="${classes.join(' ')}">
+            <div class="task-title">${categoryIcons[task.category]||'⭐'} ${task.title}</div>
+            <div class="task-info">
+              ${showDateLabel?`📅 ${formatDateDisplay(task.date)} | `:''}
+              ⏰ ${task.time || '--:--'} | 
+              ${priorityIcons[task.priority]||''} ${priorityText}
+              ${reminderText}
+            </div>
+            ${task.notes ? `<div class="task-notes">📝 ${task.notes}</div>` : ''}
+            <div class="task-actions">
+              <button class="btn ${isCompleted?'btn-secondary':'btn-success'} btn-small"
+                onclick="${isCompleted?`undoCompleteTask(${task.id})`:`completeTask(${task.id})`}">
+                ${completeBtnLabel}
+              </button>
+              <button class="btn btn-danger btn-small" onclick="deleteTask(${task.id})">
+                ${currentLang==='ar'?'🗑 حذف':'🗑 Delete'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================== إضافة/تكرار المهام ==================
+    function addTask(){
+      const title = document.getElementById('taskTitle').value.trim();
+      const date = document.getElementById('taskDate').value;
+      const time = document.getElementById('taskTime').value;
+      const priority = document.getElementById('taskPriority').value;
+      const category = document.getElementById('taskCategory').value;
+      const notes = document.getElementById('taskNotes').value.trim();
+      const reminderMinutes = parseInt(document.getElementById('taskReminder').value,10) || 0;
+      const repeatType = document.getElementById('taskRepeatType').value || 'none';
+
+      if(!title){
+        showToast(currentLang==='ar'?'⚠️ من فضلك أدخل عنوان المهمة!':'⚠️ Please enter task title!','error');
+        return;
+      }
+      if(!date){
+        showToast(currentLang==='ar'?'⚠️ من فضلك اختر التاريخ!':'⚠️ Please choose date!','error');
+        return;
+      }
+
+      const baseTask = {
+        id: Date.now(),
+        title,
+        date,
+        time,
+        priority,
+        category,
+        notes,
+        reminderMinutes,
+        repeatType,
+        completed: false,
+        reminderNotified: false,
+        alarmNotified: false,
+        createdAt: new Date().toISOString()
+      };
+      tasks.push(baseTask);
+
+      // تكرار (توليد مهام مستقبلية)
+      const baseDateObj = new Date(date+'T00:00:00');
+      const clones = [];
+
+      if(repeatType === 'daily'){
+        const daysToGenerate = 30; // 30 يوم قدّام
+        for(let i=1;i<=daysToGenerate;i++){
+          const nd = new Date(baseDateObj);
+          nd.setDate(nd.getDate()+i);
+          clones.push({
+            ...baseTask,
+            id: baseTask.id + i,
+            date: formatDate(nd)
+          });
+        }
+      } else if(repeatType === 'weekly'){
+        const weeksToGenerate = 8; // 8 أسابيع قدّام
+        for(let i=1;i<=weeksToGenerate;i++){
+          const nd = new Date(baseDateObj);
+          nd.setDate(nd.getDate()+i*7);
+          clones.push({
+            ...baseTask,
+            id: baseTask.id + i,
+            date: formatDate(nd)
+          });
+        }
+      } else if(repeatType === 'monthly'){
+        const monthsToGenerate = 6; // 6 شهور قدّام
+        for(let i=1;i<=monthsToGenerate;i++){
+          const nd = new Date(baseDateObj);
+          nd.setMonth(nd.getMonth()+i);
+          clones.push({
+            ...baseTask,
+            id: baseTask.id + i,
+            date: formatDate(nd)
+          });
+        }
+      }
+
+      if(clones.length){
+        tasks.push(...clones);
+      }
+
+      saveTasks();
+
+      document.getElementById('taskTitle').value = '';
+      document.getElementById('taskNotes').value = '';
+      document.getElementById('taskTime').value = '09:00';
+      document.getElementById('taskReminder').value = '0';
+      document.getElementById('taskRepeatType').value = 'none';
+
+      const msg = currentLang==='ar'
+        ? (clones.length ? `✅ تمت إضافة المهمة (${clones.length+1} تكرار)` : '✅ تمت إضافة المهمة!')
+        : (clones.length ? `✅ Task added (${clones.length+1} occurrences)` : '✅ Task added!');
+      showToast(msg,'success');
+      showConfetti();
+    }
+
+    function completeTask(id){
+      const idx = tasks.findIndex(t=>t.id===id);
+      if(idx===-1) return;
+      const task = tasks[idx];
+      if(task.completed) return;
+      task.completed = true;
+      completedTasks.push({...task, completedAt:new Date().toISOString()});
+      saveTasks();
+      playCompleteSound();
+      showConfetti();
+      showToast(currentLang==='ar'?'🎉 أحسنت! تم إنجاز المهمة!':'🎉 Great job!','success');
+    }
+
+    function undoCompleteTask(id){
+      const idx = tasks.findIndex(t=>t.id===id);
+      if(idx===-1) return;
+      const task = tasks[idx];
+      if(!task.completed) return;
+      task.completed = false;
+      const compIndex = completedTasks.findIndex(t=>t.id===id);
+      if(compIndex!==-1) completedTasks.splice(compIndex,1);
+      saveTasks();
+      showToast(currentLang==='ar'?'↩ تم التراجع عن إنجاز المهمة.':'↩ Task marked as not completed.','warning');
+    }
+
+    function deleteTask(id){
+      const msg = currentLang==='ar'
+        ? 'هل أنت متأكد من حذف هذه المهمة؟'
+        : 'Are you sure?';
+      if(!confirm(msg)) return;
+      tasks = tasks.filter(t=>t.id!==id);
+      completedTasks = completedTasks.filter(t=>t.id!==id);
+      saveTasks();
+      showToast(currentLang==='ar'?'🗑️ تم حذف المهمة':'🗑️ Task deleted','success');
+    }
+
+    // ================== التنقل بين الشهور ==================
+    function prevMonth(){
+      currentDate.setMonth(currentDate.getMonth()-1);
+      renderCalendar();
+    }
+    function nextMonth(){
+      currentDate.setMonth(currentDate.getMonth()+1);
+      renderCalendar();
+    }
+    function goToday(){
+      currentDate = new Date();
+      selectedDate = new Date();
+      const dateInput = document.getElementById('taskDate');
+      if(dateInput) dateInput.value = formatDate(new Date());
+      renderCalendar();
+      renderTasks();
+      renderTimeline();
+      showToast(currentLang==='ar'?'📅 العودة لليوم الحالي':'📅 Back to today','success');
+    }
+
+    // ================== الإحصائيات + الأهداف الشهرية ==================
+    function getStreakInfo(){
+      const dayCounts = {};
+      completedTasks.forEach(task=>{
+        let dStr = null;
+        if(task.completedAt) dStr = formatDate(new Date(task.completedAt));
+        else if(task.date) dStr = task.date;
+        if(!dStr) return;
+        dayCounts[dStr] = (dayCounts[dStr] || 0) + 1;
+      });
+
+      const today = new Date();
+      let currentStreak = 0;
+      let cursor = new Date(today);
+      while(true){
+        const ds = formatDate(cursor);
+        if(dayCounts[ds] && dayCounts[ds]>0){
+          currentStreak++;
+          cursor.setDate(cursor.getDate()-1);
+        } else break;
+      }
+
+      const dayStrings = Object.keys(dayCounts).sort();
+      let bestStreak = 0, streak = 0, prevDate = null;
+      for(const ds of dayStrings){
+        const d = new Date(ds+'T00:00:00');
+        if(!prevDate) streak = 1;
+        else {
+          const diffDays = Math.round((d-prevDate)/(1000*60*60*24));
+          streak = diffDays===1 ? streak+1 : 1;
+        }
+        if(streak>bestStreak) bestStreak = streak;
+        prevDate = d;
+      }
+      return { currentStreak, bestStreak };
+    }
+
+    function getCompletedThisMonth(){
+      const now = new Date();
+      const m = now.getMonth();
+      const y = now.getFullYear();
+      return completedTasks.filter(t=>{
+        const d = t.completedAt ? new Date(t.completedAt) : new Date(t.date+'T00:00:00');
+        return d.getMonth()===m && d.getFullYear()===y;
+      }).length;
+    }
+
+    function updateStats(){
+      const today = formatDate(new Date());
+      const activeTasks = tasks.filter(t=>!t.completed);
+
+      const todayCount = activeTasks.filter(t=>t.date===today).length;
+
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate()-weekStart.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate()+6);
+
+      const weekCount = activeTasks.filter(t=>{
+        const d = new Date(t.date+'T00:00:00');
+        return d>=weekStart && d<=weekEnd;
+      }).length;
+
+      const monthCount = activeTasks.filter(t=>{
+        const d = new Date(t.date+'T00:00:00');
+        return d.getMonth()===currentDate.getMonth() && d.getFullYear()===currentDate.getFullYear();
+      }).length;
+
+      const workTodayCount = activeTasks.filter(t=>t.date===today && t.category==='work').length;
+      const workWeekCount = activeTasks.filter(t=>{
+        const d = new Date(t.date+'T00:00:00');
+        return d>=weekStart && d<=weekEnd && t.category==='work';
+      }).length;
+
+      document.getElementById('totalTasks').textContent = activeTasks.length;
+      document.getElementById('todayTasks').textContent = todayCount;
+      document.getElementById('weekTasks').textContent = weekCount;
+      document.getElementById('monthTasks').textContent = monthCount;
+      document.getElementById('workDayTasksStat').textContent = workTodayCount;
+      document.getElementById('workWeekTasksStat').textContent = workWeekCount;
+
+      const { currentStreak, bestStreak } = getStreakInfo();
+      document.getElementById('currentStreakStat').textContent = currentStreak;
+      document.getElementById('bestStreakStat').textContent = bestStreak;
+    }
+
+    // ================== المنبه ==================
+    function getCurrentMinutes(){
+      const now = new Date();
+      return now.getHours()*60 + now.getMinutes();
+    }
+
+    function checkAlarms(){
+      if(!tasks.length) return;
+      const now = new Date();
+      const todayStr = formatDate(now);
+      const nowMin = getCurrentMinutes();
+      const reminderTriggered = [];
+      const alarmTriggered = [];
+      let changed = false;
+
+      tasks.forEach(t=>{
+        if(t.completed) return;
+        if(!t.date || !t.time) return;
+        if(t.date !== todayStr) return;
+        const taskMin = parseHHMMToMinutes(t.time);
+        if(taskMin == null) return;
+        const rem = t.reminderMinutes || 0;
+
+        if(rem>0 && !t.reminderNotified && nowMin >= (taskMin-rem) && nowMin < taskMin){
+          t.reminderNotified = true;
+          reminderTriggered.push(t);
+          changed = true;
+        }
+        if(!t.alarmNotified && nowMin >= taskMin){
+          t.alarmNotified = true;
+          alarmTriggered.push(t);
+          changed = true;
+        }
+      });
+
+      if(changed){
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+      }
+
+      if(reminderTriggered.length){
+        const titles = reminderTriggered.map(t=>t.title).join(currentLang==='ar'?'، ':', ');
+        showToast(
+          currentLang==='ar'
+            ? '🔔 تذكير قبل الموعد للمهمة: '+titles
+            : '🔔 Reminder for: '+titles,
+          'warning'
+        );
+        playAlarmSound();
+      }
+      if(alarmTriggered.length){
+        showAlarmToast(alarmTriggered);
+        playAlarmSound();
+      }
+    }
+
+    function showAlarmToast(alarmTasks){
+      document.querySelectorAll('.toast.alarm-toast').forEach(t=>t.remove());
+
+      const toast = document.createElement('div');
+      toast.className = 'toast warning alarm-toast';
+      const titleText = currentLang==='ar'?'⏰ حان وقت المهمة:':'⏰ Time for:';
+      const openLabel = currentLang==='ar'?'فتح اليوم في الأسبوع':'Open in week view';
+      const snoozeLabel = currentLang==='ar'?'تأجيل 5 دقائق':'Snooze 5 min';
+
+      toast.innerHTML = `
+        <div class="toast-message">
+          <div class="toast-message-title">${titleText}</div>
+          <div class="toast-task-list">
+            ${alarmTasks.map(t=>`• ${t.title}`).join('<br>')}
+          </div>
+        </div>
+        <div class="toast-actions">
+          <button class="toast-btn toast-btn-secondary" data-action="snooze">${snoozeLabel}</button>
+          <button class="toast-btn toast-btn-primary" data-action="open">${openLabel}</button>
+        </div>
+      `;
+
+      toast.querySelector('.toast-actions').addEventListener('click',(e)=>{
+        const btn = e.target.closest('button');
+        if(!btn) return;
+        if(btn.dataset.action==='open'){
+          if(alarmTasks[0] && alarmTasks[0].date){
+            const d = new Date(alarmTasks[0].date+'T00:00:00');
+            selectDate(d);
+            setViewMode('week');
+          }
+          toast.remove();
+        }
+        if(btn.dataset.action==='snooze'){
+          snoozeTasks(alarmTasks,5);
+          toast.remove();
+        }
+      });
+
+      document.body.appendChild(toast);
+      setTimeout(()=>{
+        if(!document.body.contains(toast)) return;
+        toast.style.animation = 'slideInRight 0.3s reverse';
+        setTimeout(()=>toast.remove(),300);
+      }, 60*1000);
+    }
+
+    function snoozeTasks(alarmTasks, minutes){
+      const now = new Date();
+      const nowMinutes = now.getHours()*60 + now.getMinutes();
+      const targetMinutes = nowMinutes + minutes;
+      const newHour = Math.floor(targetMinutes/60)%24;
+      const newMin = targetMinutes%60;
+      const newTime = `${String(newHour).padStart(2,'0')}:${String(newMin).padStart(2,'0')}`;
+      const todayStr = formatDate(now);
+
+      alarmTasks.forEach(task=>{
+        const idx = tasks.findIndex(t=>t.id===task.id);
+        if(idx===-1) return;
+        tasks[idx].date = todayStr;
+        tasks[idx].time = newTime;
+        tasks[idx].alarmNotified = false;
+        if(tasks[idx].reminderMinutes>0) tasks[idx].reminderNotified = false;
+      });
+
+      saveTasks();
+      showToast(
+        currentLang==='ar'
+          ? `😴 تم تأجيل المنبه ${minutes} دقائق`
+          : `😴 Snoozed ${minutes} min`,
+        'success'
+      );
+    }
+
+    function startAlarmTimer(){
+      if(alarmIntervalId) clearInterval(alarmIntervalId);
+      alarmIntervalId = setInterval(checkAlarms, 30*1000);
+      checkAlarms();
+    }
+
+    // ================== التصدير/الاستيراد ==================
+    function exportTasks(){
+      const data = {
+        exportedAt: new Date().toISOString(),
+        tasks,
+        completedTasks,
+        stats: { totalTasks: tasks.length, completedTasks: completedTasks.length }
+      };
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (currentLang==='ar'?'مهامي-':'my-tasks-')+formatDate(new Date())+'.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast(currentLang==='ar'?'💾 تم التصدير!':'💾 Exported!','success');
+    }
+
+    function importTasks(){
+      document.getElementById('importInput').click();
+    }
+
+    function handleImport(event){
+      const file = event.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = e=>{
+        try{
+          const data = JSON.parse(e.target.result);
+          if(data.tasks && Array.isArray(data.tasks)){
+            const existingIds = new Set(tasks.map(t=>t.id));
+            const newTasks = data.tasks.filter(t=>!existingIds.has(t.id));
+            tasks = [...tasks, ...newTasks];
+
+            if(data.completedTasks && Array.isArray(data.completedTasks)){
+              const existingCompletedIds = new Set(completedTasks.map(t=>t.id));
+              const newCompleted = data.completedTasks.filter(t=>!existingCompletedIds.has(t.id));
+              completedTasks = [...completedTasks, ...newCompleted];
+            }
+            saveTasks();
+            showToast(
+              currentLang==='ar'
+                ? `📂 تم استيراد ${newTasks.length} مهمة!`
+                : `📂 Imported ${newTasks.length} tasks!`,
+              'success'
+            );
+          } else {
+            showToast(currentLang==='ar'?'⚠️ ملف غير صالح!':'⚠️ Invalid file!','error');
+          }
+        } catch(err){
+          showToast(currentLang==='ar'?'❌ خطأ في القراءة!':'❌ Read error!','error');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    function clearAllTasks(){
+      const msg1 = currentLang==='ar'
+        ? '⚠️ هل أنت متأكد من حذف جميع المهام؟\n\nلا يمكن التراجع!'
+        : '⚠️ Delete ALL?\n\nCannot be undone!';
+      const msg2 = currentLang==='ar'
+        ? '⚠️ تأكيد نهائي: سيتم حذف كل المهام!'
+        : '⚠️ Final confirmation!';
+      if(!confirm(msg1)) return;
+      if(!confirm(msg2)) return;
+      tasks = [];
+      completedTasks = [];
+      saveTasks();
+      showToast(currentLang==='ar'?'🗑️ تم مسح جميع المهام':'🗑️ All tasks cleared','warning');
+    }
+
+    // ================== النوافذ المنبثقة (مودال) ==================
+    function openStatsModal(){
+      const modal = document.getElementById('statsModal');
+      const content = document.getElementById('statsContent');
+      const isDark = document.body.classList.contains('dark-mode');
+      const cardBg = isDark ? '#020617':'#f8f9fa';
+      const cardText = isDark ? '#e5e7eb':'#111827';
+      const cardBorder = isDark ? '#1f2937':'#e0e0e0';
+
+      const totalCompleted = completedTasks.length;
+      const byPriority = {
+        high: completedTasks.filter(t=>t.priority==='high').length,
+        medium: completedTasks.filter(t=>t.priority==='medium').length,
+        low: completedTasks.filter(t=>t.priority==='low').length
+      };
+      const byCategory = {
+        work: completedTasks.filter(t=>t.category==='work').length,
+        personal: completedTasks.filter(t=>t.category==='personal').length,
+        study: completedTasks.filter(t=>t.category==='study').length,
+        health: completedTasks.filter(t=>t.category==='health').length,
+        other: completedTasks.filter(t=>t.category==='other').length
+      };
+      const { currentStreak, bestStreak } = getStreakInfo();
+      const completedThisMonth = getCompletedThisMonth();
+      const progress = monthlyGoal>0 ? Math.min(100, Math.round(completedThisMonth*100/monthlyGoal)) : 0;
+
+      if(currentLang==='ar'){
+        content.innerHTML = `
+          <div style="margin-bottom:20px;">
+            <h3>📈 إحصائيات عامة</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">✅ المهام المنجزة: <strong>${totalCompleted}</strong></p>
+              <p style="margin:5px 0;">📝 المهام النشطة: <strong>${tasks.filter(t=>!t.completed).length}</strong></p>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>🔥 السلاسل</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">⚡ السلسلة الحالية: <strong>${currentStreak}</strong> يوم</p>
+              <p style="margin:5px 0;">🏆 أفضل سلسلة: <strong>${bestStreak}</strong> يوم</p>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>🎯 الأهداف الشهرية</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">🎯 الهدف الشهري: <strong>${monthlyGoal}</strong> مهمة</p>
+              <p style="margin:5px 0;">📅 المكتمل هذا الشهر: <strong>${completedThisMonth}</strong> مهمة</p>
+              <p style="margin:5px 0;">📊 التقدم: <strong>${progress}%</strong></p>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width:${progress}%;"></div>
+              </div>
+              <div style="margin-top:8px;">
+                <label style="font-size:13px;">تحديث الهدف الشهري:</label>
+                <input type="number" id="monthlyGoalInput" min="1" value="${monthlyGoal}" 
+                  style="margin-top:4px;width:100%;padding:8px;border-radius:6px;border:1px solid ${cardBorder};background:${isDark?'#020617':'#ffffff'};color:${cardText};">
+                <button id="saveGoalBtn" class="btn btn-success" style="margin-top:8px;width:100%;">💾 حفظ الهدف</button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>🎯 حسب الأولوية (المُنجزة)</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">🔴 عالية: <strong>${byPriority.high}</strong></p>
+              <p style="margin:5px 0;">🟡 متوسطة: <strong>${byPriority.medium}</strong></p>
+              <p style="margin:5px 0;">🟢 منخفضة: <strong>${byPriority.low}</strong></p>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>📁 حسب التصنيف (المُنجزة)</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">💼 عمل: <strong>${byCategory.work}</strong></p>
+              <p style="margin:5px 0;">🏠 شخصي: <strong>${byCategory.personal}</strong></p>
+              <p style="margin:5px 0;">📚 دراسة: <strong>${byCategory.study}</strong></p>
+              <p style="margin:5px 0;">💪 صحة: <strong>${byCategory.health}</strong></p>
+              <p style="margin:5px 0;">⭐ أخرى: <strong>${byCategory.other}</strong></p>
+            </div>
+          </div>
+        `;
+      } else {
+        content.innerHTML = `
+          <div style="margin-bottom:20px;">
+            <h3>📈 General stats</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">✅ Completed: <strong>${totalCompleted}</strong></p>
+              <p style="margin:5px 0;">📝 Active: <strong>${tasks.filter(t=>!t.completed).length}</strong></p>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>🔥 Streaks</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">⚡ Current: <strong>${currentStreak}</strong> days</p>
+              <p style="margin:5px 0;">🏆 Best: <strong>${bestStreak}</strong> days</p>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>🎯 Monthly goals</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">🎯 Monthly goal: <strong>${monthlyGoal}</strong> tasks</p>
+              <p style="margin:5px 0;">📅 Completed this month: <strong>${completedThisMonth}</strong> tasks</p>
+              <p style="margin:5px 0;">📊 Progress: <strong>${progress}%</strong></p>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width:${progress}%;"></div>
+              </div>
+              <div style="margin-top:8px;">
+                <label style="font-size:13px;">Update monthly goal:</label>
+                <input type="number" id="monthlyGoalInput" min="1" value="${monthlyGoal}" 
+                  style="margin-top:4px;width:100%;padding:8px;border-radius:6px;border:1px solid ${cardBorder};background:${isDark?'#020617':'#ffffff'};color:${cardText};">
+                <button id="saveGoalBtn" class="btn btn-success" style="margin-top:8px;width:100%;">💾 Save goal</button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>🎯 By priority (completed)</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">🔴 High: <strong>${byPriority.high}</strong></p>
+              <p style="margin:5px 0;">🟡 Medium: <strong>${byPriority.medium}</strong></p>
+              <p style="margin:5px 0;">🟢 Low: <strong>${byPriority.low}</strong></p>
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <h3>📁 By category (completed)</h3>
+            <div style="background:${cardBg};padding:15px;border-radius:8px;margin-top:10px;border:1px solid ${cardBorder};color:${cardText};">
+              <p style="margin:5px 0;">💼 Work: <strong>${byCategory.work}</strong></p>
+              <p style="margin:5px 0;">🏠 Personal: <strong>${byCategory.personal}</strong></p>
+              <p style="margin:5px 0;">📚 Study: <strong>${byCategory.study}</strong></p>
+              <p style="margin:5px 0;">💪 Health: <strong>${byCategory.health}</strong></p>
+              <p style="margin:5px 0;">⭐ Other: <strong>${byCategory.other}</strong></p>
+            </div>
+          </div>
+        `;
+      }
+
+      modal.classList.add('active');
+
+      const goalInput = document.getElementById('monthlyGoalInput');
+      const goalBtn = document.getElementById('saveGoalBtn');
+      if(goalInput && goalBtn){
+        goalBtn.onclick = ()=>{
+          const v = parseInt(goalInput.value,10);
+          if(!isNaN(v) && v>0){
+            monthlyGoal = v;
+            localStorage.setItem(MONTHLY_GOAL_KEY, String(monthlyGoal));
+            showToast(
+              currentLang==='ar'
+                ? '🎯 تم تحديث الهدف الشهري'
+                : '🎯 Monthly goal updated',
+              'success'
+            );
+          } else {
+            showToast(
+              currentLang==='ar'
+                ? '⚠️ أدخل رقمًا صحيحًا أكبر من 0'
+                : '⚠️ Enter a valid number > 0',
+              'error'
+            );
+          }
+        };
+      }
+    }
+
+    function closeStatsModal(){ document.getElementById('statsModal').classList.remove('active'); }
+
+    function openAboutModal(){
+      const modal = document.getElementById('aboutModal');
+      const content = document.getElementById('aboutContent');
+      if(currentLang==='ar'){
+        content.innerHTML = `
+          <p style="margin-bottom:10px;">هذا التطبيق تم تطويره بواسطة <strong>أحمد عمرو (AHMED AMR)</strong>.</p>
+          <p style="margin-bottom:10px;">تقويم مهام يساعدك على تنظيم يومك، إضافة مهام، تذكيرات، إحصائيات،.</p>
+          <p style="margin-bottom:0;">شكرًا لاستخدامك التطبيق 💙</p>
+        `;
+      } else {
+        content.innerHTML = `
+          <p style="margin-bottom:10px;">This app was created by <strong>AHMED AMR</strong>.</p>
+          <p style="margin-bottom:10px;">A productivity calendar to organize your day, tasks, reminders, stats.</p>
+          <p style="margin-bottom:0;">Thanks for using the app 💙</p>
+        `;
+      }
+      modal.classList.add('active');
+    }
+    function closeAboutModal(){ document.getElementById('aboutModal').classList.remove('active'); }
+
+    // ================== Toast & Confetti ==================
+    function showToast(message, type='success'){
+      document.querySelectorAll('.toast').forEach(t=>t.remove());
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(()=>{
+        toast.style.animation = 'slideInRight 0.3s reverse';
+        setTimeout(()=>toast.remove(),300);
+      },3000);
+    }
+
+    function showConfetti(){
+      const container = document.createElement('div');
+      container.className = 'confetti-container';
+      document.body.appendChild(container);
+      const colors = ['#f39c12','#e74c3c','#3498db','#2ecc71','#9b59b6'];
+      for(let i=0;i<50;i++){
+        setTimeout(()=>{
+          const confetti = document.createElement('div');
+          confetti.className = 'confetti';
+          confetti.style.left = Math.random()*100+'%';
+          confetti.style.background = colors[Math.floor(Math.random()*colors.length)];
+          confetti.style.animationDelay = Math.random()*0.5+'s';
+          container.appendChild(confetti);
+        }, i*30);
+      }
+      setTimeout(()=>container.remove(),3500);
+    }
+
+    // ================== اختصارات الكيبورد وإغلاق النوافذ ==================
+    document.addEventListener('keydown',e=>{
+      if((e.ctrlKey || e.metaKey) && e.key==='s'){
+        e.preventDefault();
+        exportTasks();
+      }
+      if((e.ctrlKey || e.metaKey) && e.key==='i'){
+        e.preventDefault();
+        importTasks();
+      }
+      if(e.key==='Escape'){
+        closeStatsModal();
+        closeSoundModal();
+        closeAboutModal();
+        closeMainMenu();
+      }
+    });
+
+    document.getElementById('statsModal').addEventListener('click',e=>{
+      if(e.target.id==='statsModal') closeStatsModal();
+    });
+    document.getElementById('soundModal').addEventListener('click',e=>{
+      if(e.target.id==='soundModal') closeSoundModal();
+    });
+    document.getElementById('aboutModal').addEventListener('click',e=>{
+      if(e.target.id==='aboutModal') closeAboutModal();
+    });
+    document.getElementById('alarmFileInput').addEventListener('change',handleAlarmFileInput);
+    document.getElementById('completeFileInput').addEventListener('change',handleCompleteFileInput);
+
+    // ================== init ==================
+    (function init(){
+      loadSoundSettings();
+      const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
+      applyTheme(savedTheme);
+
+      const dateInput = document.getElementById('taskDate');
+      if(dateInput) dateInput.value = formatDate(selectedDate);
+
+      const searchInput = document.getElementById('taskSearchInput');
+      if(searchInput){
+        searchInput.addEventListener('input', e=>{
+          currentSearchQuery = e.target.value || '';
+          renderTasks();
+          renderTimeline();
+        });
+      }
+
+      applyLanguageStaticTexts();
+      renderCalendar();
+      renderTasks();
+      renderTodayTasks();
+      renderTimeline();
+      updateStats();
+      startAlarmTimer();
+    })();
+  </script>
 </body>
 </html>
