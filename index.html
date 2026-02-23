@@ -185,14 +185,37 @@
       .btn-filter { padding: 6px 10px; font-size: 12px; }
     }
 
-    @media (max-width: 600px) {
-      .month-header { flex-direction: column; align-items: stretch; }
-      .month-title { order: -1; }
-      .today-task-pill { flex-direction: column; align-items: flex-start; }
-      .stats-grid { grid-template-columns: 1fr; }
-      .content { padding: 15px; }
-      .calendar-grid { gap: 3px; }
+   /* ابحث عن السطر 188 واستبدل المحتوى بهذا */
+@media (max-width: 600px) {
+    .month-header {
+        flex-direction: column; 
+        align-items: center; /* توسيط كل العناصر */
+        gap: 12px;
+        padding: 15px;
     }
+
+    /* تنسيق حاوية الزراير عشان يفضلوا جنب بعض في سطر واحد */
+    .month-navigation {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .month-header h2 {
+        font-size: 18px; /* تصغير حجم الشهر والسنة */
+        margin-bottom: 5px;
+    }
+
+    .btn-filter {
+        padding: 4px 8px; /* تصغير حجم زراير (يوم/أسبوع/شهر) */
+        font-size: 11px;
+    }
+
+    .calendar-grid {
+        gap: 2px; /* تقليل المسافة بين أيام التقويم لتناسب الشاشة */
+    }
+}
   </style>
 </head>
 <body>
@@ -1764,3 +1787,4 @@
 </body>
 
 </html>
+
