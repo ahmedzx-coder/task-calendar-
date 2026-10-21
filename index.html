@@ -8,6 +8,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
   <title>📅 تقويم المهام – Pro Task Calendar</title>
   <meta name="description" content="تقويم مهام عربي / إنجليزي مع Dark Mode، منبه بميزة التأجيل، إحصائيات، Streaks، أصوات مخصصة، وتصدير واستيراد المهام.">
   <meta property="og:site_name" content="Pro Task Calendar">
@@ -263,9 +266,54 @@
       .header h1 { font-size: 16px; }
       .stats-grid { grid-template-columns: 1fr; }
     }
+
+    /* ===================== شاشة تسجيل الدخول ===================== */
+    .auth-overlay { position: fixed; inset: 0; z-index: 3000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex; align-items: center; justify-content: center; padding: 20px;
+                    padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+    .auth-overlay.hidden { display: none !important; }
+    .auth-card { background: #fff; border-radius: 18px; padding: 28px 24px; width: 100%; max-width: 380px;
+                 box-shadow: 0 20px 60px rgba(0,0,0,0.35); animation: modalSlideIn 0.3s; }
+    .auth-logo { text-align: center; font-size: 40px; margin-bottom: 6px; }
+    .auth-title { text-align: center; font-size: 20px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+    .auth-sub { text-align: center; font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+    .auth-card input { width: 100%; padding: 13px; margin-bottom: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 16px; }
+    .auth-card input:focus { outline: none; border-color: #3498db; }
+    .auth-btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+                cursor: pointer; margin-bottom: 10px; min-height: 48px; transition: all 0.2s; }
+    .auth-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+    .auth-btn-primary { background: #3498db; color: #fff; }
+    .auth-btn-ghost { background: #f3f4f6; color: #374151; }
+    .auth-btn-google { background: #fff; color: #374151; border: 2px solid #e5e7eb; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .auth-divider { text-align: center; color: #9ca3af; font-size: 12px; margin: 12px 0; position: relative; }
+    .auth-divider::before, .auth-divider::after { content: ''; position: absolute; top: 50%; width: 38%; height: 1px; background: #e5e7eb; }
+    .auth-divider::before { left: 0; } .auth-divider::after { right: 0; }
+    .auth-msg { min-height: 18px; text-align: center; font-size: 13px; margin-top: 4px; font-weight: 600; }
+    #authUserChip { font-size: 12px; opacity: 0.85; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    body.dark-mode .auth-card { background: #0f172a; }
+    body.dark-mode .auth-title { color: #e5e7eb; }
+    body.dark-mode .auth-card input { background: #020617; border-color: #1f2937; color: #e5e7eb; }
+    body.dark-mode .auth-btn-ghost { background: #1f2937; color: #e5e7eb; }
+    body.dark-mode .auth-btn-google { background: #0f172a; color: #e5e7eb; border-color: #1f2937; }
   </style>
 </head>
 <body>
+  <!-- شاشة تسجيل الدخول (تظهر فقط عند ضبط Firebase وعدم تسجيل الدخول) -->
+  <div id="authOverlay" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="auth-logo">📅</div>
+      <div class="auth-title">تقويم المهام</div>
+      <div class="auth-sub">سجّل الدخول لمزامنة مهامك عبر كل أجهزتك</div>
+      <input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="البريد الإلكتروني">
+      <input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+      <button id="authEmailBtn" class="auth-btn auth-btn-primary">تسجيل الدخول</button>
+      <button id="authSignupBtn" class="auth-btn auth-btn-ghost">إنشاء حساب جديد</button>
+      <div class="auth-divider">أو</div>
+      <button id="authGoogleBtn" class="auth-btn auth-btn-google">🅖 المتابعة بحساب Google</button>
+      <div id="authMsg" class="auth-msg"></div>
+    </div>
+  </div>
+
   <div class="container">
     <button id="menuToggleBtn" class="menu-toggle-btn" onclick="toggleMainMenu()">☰</button>
     
@@ -278,6 +326,8 @@
       <button id="importBtnHeader" class="btn btn-primary" onclick="importTasks()">📂 استيراد</button>
       <button id="clearBtnHeader" class="btn btn-danger" onclick="clearAllTasks()">🗑️ مسح الكل</button>
       <button id="aboutBtnHeader" class="btn btn-info" onclick="openAboutModal()">ℹ️ عن التطبيق</button>
+      <div id="authUserChip" style="padding:4px 10px;"></div>
+      <button id="authLogoutBtn" class="btn btn-secondary">🚪 تسجيل الخروج</button>
     </div>
     
     <div class="header">
@@ -749,6 +799,8 @@
         renderTimeline();
         updateStats();
       }
+      // جسر السحابة: ادفع التغيير للمزامنة (إن وُجدت طبقة السحابة)
+      if(window.AppBridge && window.AppBridge._onSave){ try{ window.AppBridge._onSave(); }catch(e){} }
     }
 
     function formatDate(date){
@@ -1405,6 +1457,15 @@
         showAlarmToast(alarmTriggered);
         playAlarmSound();
       }
+      // جسر السحابة: أظهر إشعار نظام (يعمل حتى لو التبويب في الخلفية)
+      if(window.AppBridge && window.AppBridge._notify){
+        try{
+          const remTitle = currentLang==='ar' ? '🔔 تذكير قبل الموعد' : '🔔 Upcoming task';
+          const almTitle = currentLang==='ar' ? '⏰ حان وقت المهمة' : '⏰ Task time';
+          reminderTriggered.forEach(t=> window.AppBridge._notify(remTitle, t.title, 'rem-'+t.id));
+          alarmTriggered.forEach(t=> window.AppBridge._notify(almTitle, t.title, 'alm-'+t.id));
+        }catch(e){}
+      }
     }
 
     function showAlarmToast(alarmTasks){
@@ -1805,6 +1866,23 @@
     document.getElementById('completeFileInput').addEventListener('change',handleCompleteFileInput);
 
     // ================== init ==================
+    // ================== جسر السحابة (Cloud Bridge) ==================
+    // يسمح لطبقة cloud.js بقراءة/تطبيق البيانات وربط الحفظ والإشعارات
+    window.AppBridge = {
+      _onSave: null,
+      _notify: null,
+      getData(){ return { tasks: tasks, completedTasks: completedTasks }; },
+      applyRemote(t, c){
+        tasks = Array.isArray(t) ? t : [];
+        completedTasks = Array.isArray(c) ? c : [];
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+        localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+        renderCalendar(); renderTasks(); renderTodayTasks(); renderTimeline(); updateStats();
+      },
+      setLocalSaveHook(fn){ this._onSave = fn; },
+      setNotifyHook(fn){ this._notify = fn; }
+    };
+
     (function init(){
       loadSoundSettings();
       const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
@@ -1831,6 +1909,14 @@
       startAlarmTimer();
     })();
   </script>
+
+  <!-- ===== طبقة السحابة: Firebase (Auth + Firestore + Messaging) ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="cloud.js"></script>
 </body>
 
 </html>

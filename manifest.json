@@ -1,0 +1,18 @@
+{
+  "name": "تقويم المهام – Pro Task Calendar",
+  "short_name": "تقويم المهام",
+  "description": "تقويم مهام عربي/إنجليزي مع تسجيل دخول، مزامنة بين الأجهزة، وإشعارات.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#102a43",
+  "theme_color": "#102a43",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

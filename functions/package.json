@@ -1,0 +1,12 @@
+{
+  "name": "task-calendar-functions",
+  "description": "إشعارات مجدولة تصل حتى والمتصفح مغلق (FCM)",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^5.1.1",
+    "luxon": "^3.5.0"
+  },
+  "private": true
+}
