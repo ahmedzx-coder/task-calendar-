@@ -2,7 +2,12 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#102a43" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>📅 تقويم المهام – Pro Task Calendar</title>
   <meta name="description" content="تقويم مهام عربي / إنجليزي مع Dark Mode، منبه بميزة التأجيل، إحصائيات، Streaks، أصوات مخصصة، وتصدير واستيراد المهام.">
   <meta property="og:site_name" content="Pro Task Calendar">
@@ -174,48 +179,90 @@
     body.dark-mode .timeline-list { border-color:#1f2937; background:#020617; }
     body.dark-mode .progress-bar-bg { background:#1f2937; }
 
-    /* تحسين للموبايل */
+    /* ===================== تحسين الموبايل (Mobile Optimization) ===================== */
+
+    /* حماية عامة من التمرير الأفقي + دعم الـ notch (safe-area) */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body { overflow-x: hidden; }
+    * { -webkit-tap-highlight-color: rgba(0,0,0,0.08); }
+
+    /* أجهزة اللمس: إلغاء تأثيرات الـ hover اللي بتعلّق على الموبايل */
+    @media (hover: none) {
+      .btn:hover, .btn-filter:hover, .day-cell:hover,
+      .task-item:hover, .today-task-pill:hover { transform: none; box-shadow: none; }
+    }
+
+    /* الأجهزة اللوحية والموبايل (عرض ≤ 900px) */
     @media (max-width: 900px) {
-      .content { grid-template-columns: 1fr; padding: 20px; }
-      .header { padding: 15px 20px; }
+      body { padding: 12px; padding-left: max(12px, env(safe-area-inset-left));
+             padding-right: max(12px, env(safe-area-inset-right));
+             padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+      .container { border-radius: 16px; }
+      .content { grid-template-columns: 1fr; padding: 16px; gap: 16px; }
+      .header { padding: 16px 20px; }
       .header h1 { font-size: 20px; }
       .menu-toggle-btn { top: 12px; left: 12px; }
-      .main-menu { top: 52px; left: 12px; }
-      .task-filters { gap: 5px; padding: 10px; }
-      .btn-filter { padding: 6px 10px; font-size: 12px; }
+      .main-menu { top: 56px; left: 12px; }
+      .calendar-section, .sidebar { padding: 16px; }
+      .stats-grid { gap: 10px; }
+      .task-filters { gap: 6px; padding: 10px; }
+      .btn-filter { padding: 8px 12px; font-size: 12px; }
+      /* أزرار بمساحة لمس مريحة (≥ 44px) */
+      .btn { min-height: 44px; }
+      .btn-small { min-height: 38px; }
     }
 
-   /* ابحث عن السطر 188 واستبدل المحتوى بهذا */
-@media (max-width: 600px) {
-    .month-header {
-        flex-direction: column; 
-        align-items: center; /* توسيط كل العناصر */
-        gap: 12px;
-        padding: 15px;
+    /* الموبايل (عرض ≤ 600px) */
+    @media (max-width: 600px) {
+      body { padding: 8px; padding-left: max(8px, env(safe-area-inset-left));
+             padding-right: max(8px, env(safe-area-inset-right));
+             padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+      .container { border-radius: 14px; }
+      .content { padding: 12px; gap: 14px; }
+      .header { padding: 14px 16px 14px 56px; }
+      .header h1 { font-size: 18px; }
+
+      /* ترويسة الشهر: العنوان فوق، والتنقّل والعرض تحته في صف واحد متوسّط */
+      .month-header { padding: 12px; gap: 10px; }
+      .month-title { font-size: 16px; min-width: 0; width: 100%; order: -1; }
+      .month-nav, .view-toggle { flex: 1; justify-content: center; }
+      .month-nav .btn { flex: 1; }
+
+      /* شبكة التقويم: مسافات أصغر وخط مناسب للخلايا الصغيرة */
+      .calendar-grid { gap: 3px; }
+      .weekday-header { padding: 6px 2px; font-size: 11px; }
+      .day-cell { border-width: 1px; border-radius: 8px; padding: 2px; }
+      .day-number { font-size: 14px; }
+      .task-count { font-size: 9px; margin-top: 1px; }
+
+      /* منع الـ zoom التلقائي على iPhone عند التركيز: الحد الأدنى 16px */
+      .form-group input, .form-group select, .form-group textarea,
+      .task-search input { font-size: 16px; }
+      .form-group input, .form-group select, .form-group textarea { padding: 12px; }
+
+      .section-title { font-size: 16px; }
+      .btn-filter { padding: 8px 10px; font-size: 12px; }
+      .tasks-list { max-height: none; }
+
+      /* المودال: أوسع وبمساحة أطول على الموبايل */
+      .modal-content { width: 94%; padding: 20px; max-height: 88vh; border-radius: 14px; }
+      .modal-header { font-size: 18px; margin-bottom: 15px; }
+
+      /* التوست: بعرض الشاشة مع هوامش واحترام الـ safe-area */
+      .toast { left: 12px; right: 12px; max-width: none;
+               bottom: max(12px, env(safe-area-inset-bottom)); }
+      .toast.alarm-toast { max-width: none; }
+
+      /* القائمة الجانبية: أعرض شوية للوصول السهل */
+      .main-menu { min-width: 200px; max-width: calc(100vw - 24px); }
     }
 
-    /* تنسيق حاوية الزراير عشان يفضلوا جنب بعض في سطر واحد */
-    .month-navigation {
-        display: flex;
-        justify-content: center;
-        gap: 8px;
-        width: 100%;
+    /* الشاشات الصغيرة جداً (عرض ≤ 380px) */
+    @media (max-width: 380px) {
+      .day-number { font-size: 13px; }
+      .header h1 { font-size: 16px; }
+      .stats-grid { grid-template-columns: 1fr; }
     }
-
-    .month-header h2 {
-        font-size: 18px; /* تصغير حجم الشهر والسنة */
-        margin-bottom: 5px;
-    }
-
-    .btn-filter {
-        padding: 4px 8px; /* تصغير حجم زراير (يوم/أسبوع/شهر) */
-        font-size: 11px;
-    }
-
-    .calendar-grid {
-        gap: 2px; /* تقليل المسافة بين أيام التقويم لتناسب الشاشة */
-    }
-}
   </style>
 </head>
 <body>
