@@ -10,12 +10,13 @@
    ========================================================================= */
 
 var FIREBASE_CONFIG = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey:            "AIzaSyCMDiRKZG3aBTgo6WQQwjNGdFWAgdLzGgo",
+  authDomain:        "calendar-tasks-month.firebaseapp.com",
+  projectId:         "calendar-tasks-month",
+  storageBucket:     "calendar-tasks-month.firebasestorage.app",
+  messagingSenderId: "408815698654",
+  appId:             "1:408815698654:web:c2a6f9ca1ace921047f84f",
+  measurementId:     "G-NGTKD40K4F"
 };
 
 // مفتاح Web Push (VAPID) — مطلوب للإشعارات
