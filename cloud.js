@@ -360,6 +360,62 @@
     }).catch(function (e) { console.warn('[cloud] detach token error', e); });
   }
 
+  // Telegram connection: a one-time random deep-link code is stored in the current
+  // user's Firebase document. A trusted GitHub Action resolves the code through the
+  // Telegram Bot API and stores the chat ID in a backend-only collection.
+  var telegramSnapshotUnsub = null;
+  function updateTelegramButtons(connected) {
+    var connect = $('telegramConnectBtn');
+    var disconnect = $('telegramDisconnectBtn');
+    if (connect) connect.classList.toggle('hidden', !currentUser || !!connected);
+    if (disconnect) disconnect.classList.toggle('hidden', !currentUser || !connected);
+    if (connect) connect.textContent = T('✈️ ربط Telegram', '✈️ Connect Telegram');
+    if (disconnect) disconnect.textContent = T('✈️ إلغاء ربط Telegram', '✈️ Disconnect Telegram');
+  }
+
+  function connectTelegram() {
+    if (!currentUser) return;
+    var bytes = new Uint8Array(24);
+    if (!window.crypto || !window.crypto.getRandomValues) {
+      showBanner(T('المتصفح لا يدعم الربط الآمن', 'Secure linking is not supported'), 'warn');
+      return;
+    }
+    window.crypto.getRandomValues(bytes);
+    var code = Array.prototype.map.call(bytes, function (b) {
+      return ('0' + b.toString(16)).slice(-2);
+    }).join('');
+    userDoc().set({
+      telegramLink: { code: code, expiresAt: Date.now() + 30 * 60 * 1000 },
+      telegramDisconnectRequested: false
+    }, { merge: true }).then(function () {
+      var url = 'https://t.me/NatijaReminderBot?start=' + code;
+      // Display the link as a fallback in case popup restrictions block it.
+      showBanner(T('افتح Telegram واضغط Start لإتمام الربط', 'Open Telegram and tap Start to finish linking'), 'ok');
+      var tab = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!tab) window.location.href = url;
+    }).catch(function (error) { showBanner(syncErrText(error), 'warn'); });
+  }
+
+  function disconnectTelegram() {
+    if (!currentUser) return;
+    // Only the trusted backend removes the private mapping.
+    userDoc().set({
+      telegramDisconnectRequested: true,
+      telegramConnected: false,
+      telegramLink: firebase.firestore.FieldValue.delete()
+    }, { merge: true }).then(function () {
+      showBanner(T('سيتم إيقاف رسائل Telegram في الفحص القادم', 'Telegram messages will stop on the next check'), 'ok');
+    }).catch(function (error) { showBanner(syncErrText(error), 'warn'); });
+  }
+
+  function watchTelegramStatus() {
+    if (telegramSnapshotUnsub) telegramSnapshotUnsub();
+    telegramSnapshotUnsub = userDoc().onSnapshot(function (snapshot) {
+      var data = snapshot.data() || {};
+      updateTelegramButtons(!!data.telegramConnected && !data.telegramDisconnectRequested);
+    }, function () { updateTelegramButtons(false); });
+  }
+
   // ================= واجهة الدخول =================
   function showAuthOverlay(show) {
     var el = $('authOverlay');
@@ -433,6 +489,8 @@
   // ================= إقلاع الطبقة =================
   document.addEventListener('DOMContentLoaded', function () {
     wireAuthUI();
+    if ($('telegramConnectBtn')) $('telegramConnectBtn').onclick = connectTelegram;
+    if ($('telegramDisconnectBtn')) $('telegramDisconnectBtn').onclick = disconnectTelegram;
     installNotifyHook();
     var b = bridge();
     if (b && b.setLocalSaveHook) b.setLocalSaveHook(onLocalSave);
@@ -449,6 +507,7 @@
         if (chip) chip.textContent = (user.email || user.displayName || T('مُسجّل', 'Signed in'));
         saveProfile();
         startSync();
+        watchTelegramStatus();
         if (notifySupported() && messaging && vapidReady()) {
           if (Notification.permission === 'granted') registerPush(false);  // تحديث التوكن بهدوء
           else if (Notification.permission === 'default') showNotifyPrompt(function () { registerPush(true); });
@@ -456,6 +515,8 @@
         showBanner(T('تم تسجيل الدخول — المزامنة مُفعّلة', 'Signed in — sync enabled'), 'ok');
       } else {
         if (unsubscribeDoc) { unsubscribeDoc(); unsubscribeDoc = null; }
+        if (telegramSnapshotUnsub) { telegramSnapshotUnsub(); telegramSnapshotUnsub = null; }
+        updateTelegramButtons(false);
         hideNotifyPrompt();
         // امسح بيانات الحساب من الجهاز عند الخروج حتى لا تتسرّب لأي حساب لاحق
         if (localStorage.getItem(OWNER_KEY)) {
