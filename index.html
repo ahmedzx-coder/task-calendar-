@@ -1852,6 +1852,183 @@
       lastAddedTaskId = null;
     }
 
+    // ================== تحرير المهام واختيار التاريخ/الوقت ==================
+    function updateDateTimeControlLabels(){
+      const ar = currentLang === 'ar';
+      document.querySelectorAll('[data-date-choice="today"]').forEach(b => b.textContent = ar ? 'اليوم' : 'Today');
+      document.querySelectorAll('[data-date-choice="tomorrow"]').forEach(b => b.textContent = ar ? 'بكرة' : 'Tomorrow');
+      const names = { now: ar ? 'دلوقتي' : 'Now', '09:00': ar ? '9 ص' : '9 AM',
+                      '14:00': ar ? '2 م' : '2 PM', '18:00': ar ? '6 م' : '6 PM' };
+      document.querySelectorAll('[data-time-choice]').forEach(b => {
+        if(names[b.dataset.timeChoice]) b.textContent = names[b.dataset.timeChoice];
+      });
+      document.querySelectorAll('.datetime-control .picker-open-btn').forEach(b => {
+        const time = b.previousElementSibling && b.previousElementSibling.type === 'time';
+        const label = time ? (ar ? 'اختيار الوقت' : 'Open time picker')
+                           : (ar ? 'فتح التقويم' : 'Open calendar');
+        b.setAttribute('aria-label', label); b.title = label;
+      });
+      const texts = {
+        editTaskModalTitle: ar ? '✏️ تعديل المهمة' : '✏️ Edit task',
+        editTaskHint: ar ? 'التعديل على المهمة دي فقط، حتى لو متكررة.' : 'Changes apply only to this task, not other repeats.',
+        editTaskTitleLabel: ar ? 'عنوان المهمة *' : 'Task title *',
+        editTaskDateLabel: ar ? 'التاريخ *' : 'Date *',
+        editTaskTimeLabel: ar ? 'الوقت' : 'Time',
+        editTaskReminderLabel: ar ? 'تذكير قبل الموعد' : 'Reminder',
+        editTaskPriorityLabel: ar ? 'الأولوية' : 'Priority',
+        editTaskCategoryLabel: ar ? 'التصنيف' : 'Category',
+        editTaskNotesLabel: ar ? 'ملاحظات' : 'Notes',
+        cancelEditTaskBtn: ar ? 'إلغاء' : 'Cancel',
+        saveEditTaskBtn: ar ? '💾 حفظ التعديلات' : '💾 Save changes'
+      };
+      Object.keys(texts).forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.textContent = texts[id];
+      });
+      const options = [
+        ['editTaskReminder', ar ? ['بدون تذكير','5 دقائق','10 دقائق','30 دقيقة'] : ['No reminder','5 minutes','10 minutes','30 minutes']],
+        ['editTaskPriority', ar ? ['منخفضة 🟢','متوسطة 🟡','عالية 🔴'] : ['Low 🟢','Medium 🟡','High 🔴']],
+        ['editTaskCategory', ar ? ['عمل 💼','شخصي 🏠','دراسة 📚','صحة 💪','أخرى ⭐'] : ['Work 💼','Personal 🏠','Study 📚','Health 💪','Other ⭐']]
+      ];
+      options.forEach(pair => {
+        const el = document.getElementById(pair[0]);
+        if(el) Array.from(el.options).forEach((opt, i) => { if(pair[1][i]) opt.textContent = pair[1][i]; });
+      });
+    }
+
+    function chooseQuickDate(id, daysAhead){
+      const input = document.getElementById(id);
+      if(!input) return;
+      const date = new Date();
+      date.setDate(date.getDate() + daysAhead);
+      input.value = formatDate(date);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function chooseQuickTime(id, time){
+      const input = document.getElementById(id);
+      if(!input) return;
+      if(time === 'now'){
+        const now = new Date();
+        now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
+        time = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+        const dateInput = document.getElementById(id === 'editTaskTime' ? 'editTaskDate' : 'taskDate');
+        if(dateInput) dateInput.value = formatDate(now);
+      }
+      input.value = time;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function openNativePicker(id){
+      const input = document.getElementById(id);
+      if(!input) return;
+      try { if(typeof input.showPicker === 'function'){ input.showPicker(); return; } } catch(_e){}
+      input.focus(); input.click();
+    }
+
+    function openEditTaskFromButton(btn){
+      if(!btn) return;
+      const item = btn.closest('.task-item');
+      const id = btn.dataset.editId || (item && item.dataset.id);
+      if(id != null) openEditTask(id);
+    }
+
+    function openEditTask(id){
+      const task = tasks.find(t => String(t.id) === String(id));
+      if(!task){
+        showToast(currentLang === 'ar' ? 'المهمة غير موجودة' : 'Task not found', 'error');
+        return;
+      }
+      editReturnFocus = document.activeElement;
+      editingTaskId = task.id;
+      function set(field, value){
+        document.getElementById(field).value = value == null ? '' : String(value);
+      }
+      set('editTaskTitle', task.title);
+      set('editTaskDate', task.date);
+      set('editTaskTime', task.time);
+      set('editTaskReminder', task.reminderMinutes || 0);
+      set('editTaskPriority', task.priority || 'medium');
+      set('editTaskCategory', task.category || 'other');
+      set('editTaskNotes', task.notes || '');
+      updateDateTimeControlLabels();
+      const modal = document.getElementById('editTaskModal');
+      modal.classList.add('active');
+      document.body.classList.add('task-edit-open');
+      modal.querySelector('.modal-content').scrollTop = 0;
+      document.getElementById('editTaskTitle').focus({ preventScroll: true });
+    }
+
+    function closeEditTaskModal(){
+      const modal = document.getElementById('editTaskModal');
+      if(!modal || !modal.classList.contains('active')) return;
+      modal.classList.remove('active');
+      document.body.classList.remove('task-edit-open');
+      editingTaskId = null;
+      if(editReturnFocus && editReturnFocus.isConnected) editReturnFocus.focus({ preventScroll: true });
+      editReturnFocus = null;
+    }
+
+    function saveEditedTask(){
+      if(editingTaskId == null) return;
+      const task = tasks.find(t => String(t.id) === String(editingTaskId));
+      if(!task){
+        closeEditTaskModal();
+        showToast(currentLang === 'ar' ? 'المهمة غير موجودة' : 'Task no longer exists', 'error');
+        return;
+      }
+      const get = id => document.getElementById(id).value;
+      const title = get('editTaskTitle').trim();
+      const dateEl = document.getElementById('editTaskDate');
+      const timeEl = document.getElementById('editTaskTime');
+      const date = dateEl.value, time = timeEl.value;
+      const reminder = Number(get('editTaskReminder')) || 0;
+      if(!title){
+        showToast(currentLang === 'ar' ? 'اكتب عنوان المهمة' : 'Enter a task title', 'error');
+        document.getElementById('editTaskTitle').focus();
+        return;
+      }
+      if(!date || !dateEl.validity.valid || !timeEl.validity.valid){
+        showToast(currentLang === 'ar' ? 'اختار تاريخ ووقت صحيحين' : 'Choose a valid date and time', 'error');
+        dateEl.focus();
+        return;
+      }
+      if(!time && reminder){
+        showToast(currentLang === 'ar' ? 'اختار وقت عشان التذكير' : 'Choose a time for your reminder', 'error');
+        timeEl.focus();
+        return;
+      }
+      const scheduleChanged = date !== task.date || time !== (task.time || '') ||
+        reminder !== (Number(task.reminderMinutes) || 0);
+      task.title = title;
+      task.date = date;
+      task.time = time;
+      task.priority = get('editTaskPriority');
+      task.category = get('editTaskCategory');
+      task.notes = get('editTaskNotes').trim();
+      task.reminderMinutes = reminder;
+      task.updatedAt = Date.now();
+      if(scheduleChanged){
+        task.reminderVersion = task.updatedAt;
+        task.reminderNotified = false;
+        task.alarmNotified = false;
+      }
+      const completedIndex = completedTasks.findIndex(t => String(t.id) === String(task.id));
+      if(completedIndex !== -1){
+        completedTasks[completedIndex] = Object.assign({}, completedTasks[completedIndex], task);
+      }
+      const newDate = new Date(date + 'T00:00:00');
+      if(!Number.isNaN(newDate.getTime())){
+        selectedDate = newDate;
+        currentDate = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+        const newDateInput = document.getElementById('taskDate');
+        if(newDateInput) newDateInput.value = date;
+      }
+      closeEditTaskModal();
+      saveTasks();
+      showToast(currentLang === 'ar' ? '✅ تم تعديل المهمة' : '✅ Task updated', 'success');
+    }
+
     // ================== إضافة/تكرار المهام ==================
     function addTask(){
       const title = document.getElementById('taskTitle').value.trim();
