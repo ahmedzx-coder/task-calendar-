@@ -77,10 +77,11 @@ const server = http.createServer(async (req, res) => {
     console.log('Starting scheduled Natija reminders.');
     const results = await Promise.allSettled([
       runExistingWorker('send-reminders.js'),
-      runExistingWorker('telegram-reminders.js')
+      runExistingWorker('telegram-reminders.js'),
+      runExistingWorker('send-email-reminders.js')
     ]);
     const failed = results.map((result, index) => result.status === 'rejected'
-      ? (index === 0 ? 'push' : 'telegram')
+      ? (index === 0 ? 'push' : index === 1 ? 'telegram' : 'email')
       : null).filter(Boolean);
     console.log('Scheduled reminders finished; failed workers:', failed.join(', ') || 'none');
     return respond(res, failed.length ? 500 : 200, {
