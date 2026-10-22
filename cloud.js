@@ -263,7 +263,9 @@
     var canMergeLocal = (!owner || owner === currentUser.uid);
     if (!canMergeLocal) clearLocalTasks();
 
+    var syncingUid = currentUser.uid;
     userDoc().get().then(function (snap) {
+      if (!currentUser || currentUser.uid !== syncingUid) return;
       var local = canMergeLocal ? getLocalData() : { tasks: [], completedTasks: [] };
       var data = (snap.exists && snap.data()) || {};
       var mergedTasks = mergeById(local.tasks, data.tasks || []);
@@ -272,6 +274,15 @@
       pushToCloud(mergedTasks, mergedCompleted, true);
       localStorage.setItem(OWNER_KEY, currentUser.uid);
       listenRealtime();
+      // Show onboarding once per account, only after its existing task data
+      // has loaded. This never writes demo tasks or changes notification settings.
+      if (window.NatijaTour) {
+        setTimeout(function () {
+          if (currentUser && currentUser.uid === syncingUid) {
+            window.NatijaTour.maybeStart(syncingUid, Number(data.onboardingVersion || 0) >= 1);
+          }
+        }, 400);
+      }
     }).catch(function (err) {
       console.error('[cloud] sync error', err);
       showBanner(syncErrText(err), 'warn');
@@ -547,6 +558,13 @@
     if ($('telegramConnectBtn')) $('telegramConnectBtn').onclick = connectTelegram;
     if ($('telegramDisconnectBtn')) $('telegramDisconnectBtn').onclick = disconnectTelegram;
     if ($('emailReminderBtn')) $('emailReminderBtn').onclick = toggleEmailReminders;
+    window.addEventListener('natija-onboarding-completed', function (event) {
+      var detail = event.detail || {};
+      if (!currentUser || detail.uid !== currentUser.uid || detail.version !== 1) return;
+      userDoc().set({ onboardingVersion: 1 }, { merge: true }).catch(function (err) {
+        console.warn('[cloud] onboarding progress sync failed:', err && err.code);
+      });
+    });
     installNotifyHook();
     var b = bridge();
     if (b && b.setLocalSaveHook) b.setLocalSaveHook(onLocalSave);
@@ -557,6 +575,7 @@
 
     auth.onAuthStateChanged(function (user) {
       currentUser = user;
+      if (window.NatijaTour) window.NatijaTour.identify(user ? user.uid : null);
       if (user) {
         showAuthOverlay(false);
         var chip = $('authUserChip');
