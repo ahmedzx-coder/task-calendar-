@@ -1165,6 +1165,8 @@
     let pendingGridAnim = null;   // 'anim-in' | 'anim-next' | 'anim-prev'
     let pendingPopDate = null;    // اليوم اللي اتختار حالًا
     let lastAddedTaskId = null;   // المهمة الجديدة تدخل بحركة
+    let editingTaskId = null;
+    let editReturnFocus = null;
     const completingIds = new Set();
     const reduceMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -1318,6 +1320,7 @@
       updateStats();
       updateThemeButtonLabel();
       updateLangButtonLabel();
+      updateDateTimeControlLabels();
     }
 
     function toggleLanguage(){
@@ -1684,7 +1687,7 @@
             <span aria-hidden="true">${categoryIcons[t.category] || '⭐'}</span>
             <span class="today-task-title">${esc(t.title)}</span>
           </div>
-          <span aria-hidden="true">${priorityIcons[t.priority] || ''}</span>
+          <button type="button" class="today-task-edit" data-edit-id="${esc(t.id)}" onclick="openEditTaskFromButton(this)" title="${currentLang==='ar'?'تعديل المهمة':'Edit task'}" aria-label="${currentLang==='ar'?'تعديل المهمة':'Edit task'}">✏️</button>
         </div>
       `).join('');
 
@@ -1834,6 +1837,7 @@
             <div class="task-meta">${meta.map(m=>`<span>${m}</span>`).join('')}</div>
             ${task.notes ? `<div class="task-notes">📝 ${esc(task.notes)}</div>` : ''}
             <div class="task-actions">
+              <button type="button" class="btn btn-quiet btn-small" onclick="openEditTaskFromButton(this)" aria-label="${isAr?'تعديل المهمة':'Edit task'}">✏️ ${isAr?'تعديل':'Edit'}</button>
               <button class="btn ${isCompleted?'btn-quiet':'btn-success'} btn-small"
                 onclick="${isCompleted?`undoCompleteTask(${task.id})`:`completeTask(${task.id})`}">
                 ${completeBtnLabel}
@@ -2502,10 +2506,14 @@
         closeStatsModal();
         closeSoundModal();
         closeAboutModal();
+        closeEditTaskModal();
         closeMainMenu();
       }
     });
 
+    document.getElementById('editTaskModal').addEventListener('click',e=>{
+      if(e.target.id==='editTaskModal') closeEditTaskModal();
+    });
     document.getElementById('statsModal').addEventListener('click',e=>{
       if(e.target.id==='statsModal') closeStatsModal();
     });
