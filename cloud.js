@@ -413,7 +413,46 @@
     telegramSnapshotUnsub = userDoc().onSnapshot(function (snapshot) {
       var data = snapshot.data() || {};
       updateTelegramButtons(!!data.telegramConnected && !data.telegramDisconnectRequested);
-    }, function () { updateTelegramButtons(false); });
+      updateEmailReminderButton(data.emailRemindersEnabled === true);
+    }, function () { updateTelegramButtons(false); updateEmailReminderButton(false); });
+  }
+
+  // Opt-in email reminders to the verified email address in Firebase Authentication.
+  // The browser never sees Gmail SMTP credentials or chooses arbitrary recipients.
+  var emailReminderEnabled = false;
+  function updateEmailReminderButton(enabled) {
+    emailReminderEnabled = !!enabled;
+    var btn = $('emailReminderBtn');
+    if (!btn) return;
+    btn.classList.toggle('hidden', !currentUser || !currentUser.email);
+    btn.textContent = enabled
+      ? T('📧 إيقاف تذكيرات الإيميل ✅', '📧 Disable email reminders ✅')
+      : T('📧 تفعيل تذكيرات الإيميل', '📧 Enable email reminders');
+  }
+
+  function toggleEmailReminders() {
+    if (!currentUser || !currentUser.email) return;
+    var user = currentUser;
+    var ref = db.collection('users').doc(user.uid);
+    if (emailReminderEnabled) {
+      ref.set({ emailRemindersEnabled: false }, { merge: true }).then(function () {
+        showBanner(T('تم إيقاف تذكيرات الإيميل', 'Email reminders disabled'), 'ok');
+      }).catch(function (err) { showBanner(syncErrText(err), 'warn'); });
+      return;
+    }
+    user.reload().then(function () {
+      if (!auth.currentUser || auth.currentUser.uid !== user.uid) return;
+      if (!auth.currentUser.emailVerified) {
+        return auth.currentUser.sendEmailVerification().then(function () {
+          showBanner(T('بعتنالك رسالة تأكيد على إيميل حسابك. افتحها وبعد التأكيد اضغط تفعيل تذكيرات الإيميل مرة تانية',
+                       'Verification email sent. Verify your address, then enable email reminders again'), 'warn');
+        });
+      }
+      return ref.set({ emailRemindersEnabled: true }, { merge: true }).then(function () {
+        showBanner(T('تم طلب تفعيل تذكيرات الإيميل على بريد حسابك. لازم يكون Gmail SMTP متضبط في GitHub Secrets',
+                     'Email reminders opted in for your account. Gmail SMTP must be configured in GitHub Secrets'), 'ok');
+      });
+    }).catch(function (err) { showBanner(syncErrText(err), 'warn'); });
   }
 
   // ================= واجهة الدخول =================
@@ -491,6 +530,7 @@
     wireAuthUI();
     if ($('telegramConnectBtn')) $('telegramConnectBtn').onclick = connectTelegram;
     if ($('telegramDisconnectBtn')) $('telegramDisconnectBtn').onclick = disconnectTelegram;
+    if ($('emailReminderBtn')) $('emailReminderBtn').onclick = toggleEmailReminders;
     installNotifyHook();
     var b = bridge();
     if (b && b.setLocalSaveHook) b.setLocalSaveHook(onLocalSave);
@@ -517,6 +557,7 @@
         if (unsubscribeDoc) { unsubscribeDoc(); unsubscribeDoc = null; }
         if (telegramSnapshotUnsub) { telegramSnapshotUnsub(); telegramSnapshotUnsub = null; }
         updateTelegramButtons(false);
+        updateEmailReminderButton(false);
         hideNotifyPrompt();
         // امسح بيانات الحساب من الجهاز عند الخروج حتى لا تتسرّب لأي حساب لاحق
         if (localStorage.getItem(OWNER_KEY)) {
