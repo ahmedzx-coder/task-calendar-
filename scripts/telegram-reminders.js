@@ -181,7 +181,7 @@ async function deliverReminders() {
       ];
       for (const item of due) {
         if (!item.active) continue;
-        const key = today + '_' + task.id + '_' + item.kind;
+        const key = today + '_' + task.id + (task.reminderVersion ? '_' + task.reminderVersion : '') + '_' + item.kind;
         if (pushed[key]) continue;
         const title = String(task.title || (ar ? 'مهمة' : 'Task')).slice(0, 180);
         const prefix = item.kind === 'rem'
