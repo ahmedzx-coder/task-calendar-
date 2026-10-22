@@ -10,6 +10,7 @@
     "luxon": "^3.5.0"
   },
   "scripts": {
-    "start": "node http-runner.js"
+    "start": "node http-runner.js",
+    "cron": "node run-once.js"
   }
 }
