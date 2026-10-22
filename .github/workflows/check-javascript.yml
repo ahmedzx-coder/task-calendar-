@@ -1,0 +1,45 @@
+name: Check Natija JavaScript
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'cloud.js'
+      - 'scripts/**'
+      - 'functions/**'
+      - '.github/workflows/check-javascript.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript files
+        run: |
+          node --check cloud.js
+          for file in scripts/*.js functions/*.js; do
+            node --check "$file"
+          done
+      - name: Check inline app JavaScript
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const pattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+          let count = 0;
+          for (const match of html.matchAll(pattern)) {
+            if (/\bsrc\s*=/.test(match[1]) || /application\/ld\+json/i.test(match[1])) continue;
+            new vm.Script(match[2], { filename: 'index.inline.' + (++count) + '.js' });
+          }
+          if (!count) throw new Error('No application inline JavaScript found');
+          console.log('Checked ' + count + ' inline application scripts');
+          NODE
