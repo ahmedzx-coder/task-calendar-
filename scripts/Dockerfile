@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 
-COPY http-runner.js send-reminders.js telegram-reminders.js run-once.js ./
+COPY http-runner.js send-reminders.js telegram-reminders.js send-email-reminders.js run-once.js ./
 
 USER node
 CMD ["node", "run-once.js"]
