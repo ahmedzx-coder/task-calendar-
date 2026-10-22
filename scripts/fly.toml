@@ -1,0 +1,23 @@
+# Natija Telegram + FCM reminder runner
+# Run fly launch --no-deploy inside scripts/ to create a Fly app.
+# flyctl will add the Fly app's unique name to this configuration.
+primary_region = 'ams'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '8080'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
