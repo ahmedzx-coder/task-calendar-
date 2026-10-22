@@ -57,7 +57,7 @@ exports.sendTaskReminders = onSchedule(
 
         // تذكير قبل الموعد
         if (rem > 0) {
-          const key = `${today}_${t.id}_rem`;
+          const key = `${today}_${t.id}${t.reminderVersion ? '_' + t.reminderVersion : ''}_rem`;
           if (!pushed[key] && nowMin >= (taskMin - rem) && nowMin < taskMin) {
             pushed[key] = true; changed = true;
             messages.push({
@@ -69,7 +69,7 @@ exports.sendTaskReminders = onSchedule(
         }
 
         // موعد المهمة (خلال نافذة 3 دقائق بعد الوقت)
-        const keyA = `${today}_${t.id}_alarm`;
+        const keyA = `${today}_${t.id}${t.reminderVersion ? '_' + t.reminderVersion : ''}_alarm`;
         if (!pushed[keyA] && nowMin >= taskMin && (nowMin - taskMin) <= 3) {
           pushed[keyA] = true; changed = true;
           messages.push({
