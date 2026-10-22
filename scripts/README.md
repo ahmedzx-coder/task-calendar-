@@ -95,11 +95,11 @@ Railway supports scheduled services that run briefly and exit. This is a better 
 3. In **Variables**, provide these values privately:
    - `FIREBASE_SERVICE_ACCOUNT`: full Firebase Admin JSON service account credentials.
    - `TELEGRAM_BOT_TOKEN`: private BotFather API token. **Do not put it in public source code.**
-4. Under **Settings → Deploy**, set **Custom Start Command** to `node run-once.js`.
-5. Under **Settings → Cron Schedule**, set `*/5 * * * *` (UTC). **Do not generate a public domain** for the cron service.
+4. Under **Settings → Deploy**, leave **Custom Start Command** unset. The default `scripts/Dockerfile` now runs `node run-once.js` and exits. If a command was previously entered, delete it, or explicitly set `node run-once.js`.
+5. Under **Settings → Cron Schedule**, set `*/5 * * * *` (UTC). **Do not generate a public domain** for this cron service.
 6. Deploy, review the service's **Cron Runs** and logs, and create a timed Natija task for a real Telegram delivery test.
 7. After Railway has delivered a reminder **automatically**, remove the `schedule` trigger from GitHub's `.github/workflows/reminders.yml` to prevent double notifications and competing bot polling. Keep `workflow_dispatch` if you need an emergency manual test.
 
-The Dockerfile still defaults to the HTTP runner (for the existing Fly/Render approach), so Railway requires the `node run-once.js` **Custom Start Command** override. Scheduled Railway jobs start, execute Firebase push and Telegram reminders, and exit with success or failure; they never need to listen on a port.
+The main `scripts/Dockerfile` runs the scheduled worker by default. Existing Fly HTTP hosting uses `scripts/Dockerfile.web` via `scripts/fly.toml`; the HTTP service can also be started with `npm start`. Railway scheduled jobs start, send Firebase push and Telegram reminders, and exit with success or failure; they never need a public port.
 
 **Cost:** Railway's Free plan includes only $1 of monthly usage credit after a time-limited trial; this is not an unlimited free server. The final cost depends on usage and Railway's account rules. See https://docs.railway.com/pricing/plans and https://docs.railway.com/cron-jobs.
