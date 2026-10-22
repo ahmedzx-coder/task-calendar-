@@ -17,7 +17,7 @@ try {
       // لا نعرضها مرة ثانية حتى لا يظهر الإشعار مكرّرًا.
       if (payload && payload.notification) return;
       var d = (payload && payload.data) || {};
-      self.registration.showNotification(d.title || '📅 تقويم المهام', {
+      self.registration.showNotification(d.title || '📅 نتيجة', {
         body: d.body || '',
         icon: 'icons/icon-192.png',
         badge: 'icons/icon-192.png',

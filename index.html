@@ -11,16 +11,16 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
-  <title>📅 تقويم المهام – Pro Task Calendar</title>
-  <meta name="description" content="تقويم مهام عربي / إنجليزي مع تسجيل دخول، مزامنة بين الأجهزة، إشعارات، Dark Mode، إحصائيات، وسلاسل إنجاز.">
-  <meta name="keywords" content="تقويم مهام, منظم مهام, تطبيق مهام, task calendar, to-do, تذكير, تنظيم الوقت">
+  <title>نتيجة Natija – تقويم المهام</title>
+  <meta name="description" content="نتيجة (Natija) — تطبيق تقويم ومهام عربي/إنجليزي مع تسجيل دخول، مزامنة بين الأجهزة، إشعارات، وضع ليلي، إحصائيات، وسلاسل إنجاز.">
+  <meta name="keywords" content="نتيجة, natija, تقويم مهام, منظم مهام, تطبيق مهام, task calendar, to-do, تذكير, تنظيم الوقت">
   <meta name="author" content="ahmedzx-coder">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://ahmedzx-coder.github.io/task-calendar-/">
 
   <!-- Open Graph (فيسبوك/واتساب/لينكدإن) -->
-  <meta property="og:site_name" content="Pro Task Calendar">
-  <meta property="og:title" content="تقويم المهام – Pro Task Calendar">
+  <meta property="og:site_name" content="نتيجة Natija">
+  <meta property="og:title" content="نتيجة Natija – تقويم المهام">
   <meta property="og:description" content="نظّم مهامك بتقويم عربي/إنجليزي مع مزامنة بين أجهزتك، إشعارات، ووضع ليلي.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ahmedzx-coder.github.io/task-calendar-/">
@@ -29,7 +29,7 @@
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="تقويم المهام – Pro Task Calendar">
+  <meta name="twitter:title" content="نتيجة Natija – تقويم المهام">
   <meta name="twitter:description" content="نظّم مهامك بتقويم عربي/إنجليزي مع مزامنة بين أجهزتك، إشعارات، ووضع ليلي.">
   <meta name="twitter:image" content="https://ahmedzx-coder.github.io/task-calendar-/icons/icon-512.png">
 
@@ -38,7 +38,8 @@
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "تقويم المهام – Pro Task Calendar",
+    "name": "نتيجة Natija – تقويم المهام",
+    "alternateName": "Natija",
     "url": "https://ahmedzx-coder.github.io/task-calendar-/",
     "applicationCategory": "ProductivityApplication",
     "operatingSystem": "Web",
@@ -52,7 +53,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&display=swap">
   <style>
     /* =====================================================================
-       تقويم المهام — نظام التصميم
+       نتيجة (Natija) — نظام التصميم
        خط Alexandria (محمد جابر) · حبر كحلي + يشمي + زعفران · RTL أولًا
        الألوان بتحمل معنى: يشمي = إنجاز/النهارده، زعفران = تنبيه/أولوية متوسطة،
        مرجاني = حذف/أولوية عالية. الحركة بتحصل بس ردًا على فعل المستخدم.
@@ -747,7 +748,7 @@
   <div id="authOverlay" class="auth-overlay hidden">
     <div class="auth-card">
       <img class="auth-logo" src="icons/icon-192.png" alt="" width="56" height="56">
-      <div class="auth-title">تقويم المهام</div>
+      <div class="auth-title">نتيجة</div>
       <div class="auth-sub">سجّل الدخول لمزامنة مهامك عبر كل أجهزتك</div>
       <input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="البريد الإلكتروني">
       <input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
@@ -763,7 +764,7 @@
     <header class="header">
       <div class="brand">
         <img class="brand-mark" src="icons/icon-192.png" alt="" width="34" height="34">
-        <h1 id="appTitle">تقويم المهام</h1>
+        <h1 id="appTitle">نتيجة</h1>
       </div>
       <button id="menuToggleBtn" class="menu-toggle-btn" onclick="toggleMainMenu()" aria-label="القائمة" aria-haspopup="true" aria-expanded="false" aria-controls="mainMenu">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -1095,7 +1096,7 @@
       document.documentElement.dir = isAr ? 'rtl' : 'ltr';
 
       const texts = {
-        appTitle: isAr ? 'تقويم المهام' : 'Pro Task Calendar',
+        appTitle: isAr ? 'نتيجة' : 'Natija',
         statsBoxTitle: isAr ? '📊 الإحصائيات' : '📊 Statistics',
         statLabelActiveTasks: isAr ? 'المهام النشطة' : 'Active tasks',
         statLabelTodayTasks: isAr ? 'مهام اليوم' : 'Today',
@@ -2290,13 +2291,13 @@
       if(currentLang==='ar'){
         content.innerHTML = `
           <p style="margin-bottom:10px;">هذا التطبيق تم تطويره بواسطة <strong>أحمد عمرو (AHMED AMR)</strong>.</p>
-          <p style="margin-bottom:10px;">تقويم مهام يساعدك على تنظيم يومك، إضافة مهام، تذكيرات، إحصائيات،.</p>
+          <p style="margin-bottom:10px;"><strong>نتيجة (Natija)</strong> تطبيق يساعدك على تنظيم يومك: مهام، تذكيرات، مزامنة بين أجهزتك، وإحصائيات.</p>
           <p style="margin-bottom:0;">شكرًا لاستخدامك التطبيق 💙</p>
         `;
       } else {
         content.innerHTML = `
           <p style="margin-bottom:10px;">This app was created by <strong>AHMED AMR</strong>.</p>
-          <p style="margin-bottom:10px;">A productivity calendar to organize your day, tasks, reminders, stats.</p>
+          <p style="margin-bottom:10px;"><strong>Natija</strong> is a productivity calendar to organize your day: tasks, reminders, cross-device sync, and stats.</p>
           <p style="margin-bottom:0;">Thanks for using the app 💙</p>
         `;
       }
