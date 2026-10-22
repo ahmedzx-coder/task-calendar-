@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ahmedzx-coder.github.io/task-calendar-/sitemap.xml
