@@ -1,0 +1,10 @@
+{
+  "name": "task-calendar-reminders",
+  "description": "إرسال تنبيهات المهام المستحقة عبر FCM من GitHub Actions",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "luxon": "^3.5.0"
+  }
+}
