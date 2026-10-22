@@ -818,13 +818,13 @@
   <div id="authOverlay" class="auth-overlay hidden">
     <div class="auth-card">
       <img class="auth-logo" src="icons/icon-192.png" alt="" width="56" height="56">
-      <div class="auth-title">نتيجة</div>
-      <div class="auth-sub">سجّل الدخول لمزامنة مهامك عبر كل أجهزتك</div>
+      <div id="authTitle" class="auth-title">نتيجة</div>
+      <div id="authSubtitle" class="auth-sub">سجّل الدخول لمزامنة مهامك عبر كل أجهزتك</div>
       <input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="البريد الإلكتروني">
       <input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
       <button id="authEmailBtn" class="auth-btn auth-btn-primary">تسجيل الدخول</button>
       <button id="authSignupBtn" class="auth-btn auth-btn-ghost">إنشاء حساب جديد</button>
-      <div class="auth-divider">أو</div>
+      <div id="authDivider" class="auth-divider">أو</div>
       <button id="authGoogleBtn" class="auth-btn auth-btn-google">المتابعة بحساب Google</button>
       <div id="authMsg" class="auth-msg"></div>
     </div>
@@ -1013,7 +1013,7 @@
     <div class="modal-content edit-task-content">
       <div class="modal-header">
         <span id="editTaskModalTitle">✏️ تعديل المهمة</span>
-        <button type="button" class="modal-close" onclick="closeEditTaskModal()" aria-label="إغلاق تعديل المهمة">&times;</button>
+        <button id="editTaskCloseBtn" type="button" class="modal-close" onclick="closeEditTaskModal()" aria-label="إغلاق تعديل المهمة">&times;</button>
       </div>
       <div class="edit-task-hint" id="editTaskHint">التعديلات تخص المهمة دي فقط، حتى لو متكررة.</div>
       <div class="form-group"><label id="editTaskTitleLabel" for="editTaskTitle">عنوان المهمة *</label>
@@ -1321,6 +1321,87 @@
       updateThemeButtonLabel();
       updateLangButtonLabel();
       updateDateTimeControlLabels();
+      // Translate native select options (these were left in Arabic in English mode).
+      // Keep option values untouched: existing tasks and reminders use these IDs.
+      const selectTranslations = {
+        taskReminder: [
+          ['بدون تذكير','5 دقائق','10 دقائق','30 دقيقة'],
+          ['No reminder','5 minutes','10 minutes','30 minutes']
+        ],
+        taskRepeatType: [
+          ['بدون تكرار','يوميًا','أسبوعيًا','شهريًا'],
+          ['No repeat','Daily','Weekly','Monthly']
+        ],
+        taskPriority: [
+          ['منخفضة 🟢','متوسطة 🟡','عالية 🔴'],
+          ['Low 🟢','Medium 🟡','High 🔴']
+        ],
+        taskCategory: [
+          ['عمل 💼','شخصي 🏠','دراسة 📚','صحة 💪','أخرى ⭐'],
+          ['Work 💼','Personal 🏠','Study 📚','Health 💪','Other ⭐']
+        ],
+        alarmSoundSelect: [
+          ['منبه بسيط 1','منبه متدرج 2','ملف مخصص','بدون صوت'],
+          ['Simple alarm 1','Ascending alarm 2','Custom audio','No sound']
+        ],
+        completeSoundSelect: [
+          ['صوت إنجاز افتراضي','ملف مخصص','بدون صوت'],
+          ['Default completion sound','Custom audio','No sound']
+        ]
+      };
+      for(const [id, translations] of Object.entries(selectTranslations)){
+        const el = document.getElementById(id);
+        if(!el) continue;
+        Array.from(el.options).forEach((option, i) => {
+          option.textContent = translations[isAr ? 0 : 1][i] || option.textContent;
+        });
+      }
+
+      // Translate input hints and login fields, including the signed-out screen.
+      const placeholders = {
+        taskTitle: isAr ? 'مثال: اجتماع مع العميل' : 'e.g. Meeting with a client',
+        taskNotes: isAr ? 'أي معلومات إضافية...' : 'Any additional information...',
+        editTaskNotes: isAr ? 'أي معلومات إضافية...' : 'Any additional information...',
+        authEmail: isAr ? 'البريد الإلكتروني' : 'Email address',
+        authPassword: isAr ? 'كلمة المرور' : 'Password'
+      };
+      for(const [id, value] of Object.entries(placeholders)){
+        const el = document.getElementById(id);
+        if(el) el.placeholder = value;
+      }
+      const staticLabels = {
+        authTitle: isAr ? 'نتيجة' : 'Natija',
+        authSubtitle: isAr ? 'سجّل الدخول لمزامنة مهامك عبر كل أجهزتك' : 'Sign in to sync your tasks across devices',
+        authEmailBtn: isAr ? 'تسجيل الدخول' : 'Sign in',
+        authSignupBtn: isAr ? 'إنشاء حساب جديد' : 'Create account',
+        authDivider: isAr ? 'أو' : 'or',
+        authGoogleBtn: isAr ? 'المتابعة بحساب Google' : 'Continue with Google',
+        authLogoutBtn: isAr ? '🚪 تسجيل الخروج' : '🚪 Sign out',
+        statsModalTitle: isAr ? '📊 تقرير الإحصائيات المفصل' : '📊 Detailed statistics',
+        soundModalTitle: isAr ? '🔊 إعدادات الأصوات' : '🔊 Sound settings',
+        aboutModalTitle: isAr ? 'ℹ️ عن التطبيق' : 'ℹ️ About',
+        labelAlarmSound: isAr ? 'صوت المنبه:' : 'Alarm sound:',
+        labelAlarmFile: isAr ? 'ملف صوت المنبه:' : 'Alarm audio file:',
+        labelCompleteSound: isAr ? 'صوت الإنجاز:' : 'Completion sound:',
+        labelCompleteFile: isAr ? 'ملف صوت الإنجاز:' : 'Completion audio file:',
+        testAlarmBtn: isAr ? '🔔 تجربة' : '🔔 Test alarm',
+        testCompleteBtn: isAr ? '✅ تجربة' : '✅ Test completion',
+        saveSoundBtn: isAr ? '💾 حفظ' : '💾 Save'
+      };
+      for(const [id, value] of Object.entries(staticLabels)){
+        const el = document.getElementById(id);
+        if(el) el.textContent = value;
+      }
+      const editClose = document.getElementById('editTaskCloseBtn');
+      if(editClose) editClose.setAttribute('aria-label', isAr ? 'إغلاق تعديل المهمة' : 'Close edit task');
+      const nav = document.getElementById('mainMenu');
+      if(nav) nav.setAttribute('aria-label', isAr ? 'القائمة' : 'Menu');
+      const calendar = document.querySelector('.calendar-section');
+      if(calendar) calendar.setAttribute('aria-label', isAr ? 'التقويم' : 'Calendar');
+
+      // Firebase menu labels (Telegram/email/notification) are refreshed
+      // by cloud.js via this event without losing connection status.
+      window.dispatchEvent(new CustomEvent('natija-language-changed', { detail: { language: currentLang } }));
     }
 
     function toggleLanguage(){
