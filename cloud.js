@@ -2,7 +2,7 @@
    cloud.js — طبقة السحابة لتقويم المهام
    تسجيل الدخول (Firebase Auth) + مزامنة Firestore اللحظية + إشعارات (FCM)
    تعمل كطبقة فوق التطبيق عبر window.AppBridge، والتطبيق يظل يشتغل محلياً
-   بالكامل حتى لو Firebase غير مُعد بعد (وضع محلي).
+   بالكامل حتى لو Firebase غير مُعد أو تعذّر تحميله (وضع محلي).
    ========================================================================= */
 (function () {
   'use strict';
@@ -20,18 +20,143 @@
 
   var isAr = (localStorage.getItem('task-planner-lang-v1') || 'ar') === 'ar';
   function T(ar, en) { return isAr ? ar : en; }
+  function $(id) { return document.getElementById(id); }
+  function bridge() { return window.AppBridge || null; }
 
-  // ---------- وضع محلي (Firebase غير مُعد) ----------
+  // ================= الأشرطة السفلية (رسائل + طلب تفعيل الإشعارات) =================
+  function barHost() {
+    var host = $('cloudBars');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'cloudBars';
+      host.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2000;display:flex;' +
+        'flex-direction:column;padding-bottom:env(safe-area-inset-bottom);pointer-events:none;';
+      document.body.appendChild(host);
+    }
+    return host;
+  }
+
+  function barStyle(bg) {
+    return 'pointer-events:auto;background:' + bg + ';color:#fff;padding:9px 14px;font-size:13px;' +
+      'text-align:center;font-family:inherit;box-shadow:0 -2px 10px rgba(0,0,0,.25);' +
+      'display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;';
+  }
+
+  // kind: 'ok' (يختفي تلقائيًا) | 'warn' (يبقى حتى يُضغط عليه)
+  function showBanner(text, kind) {
+    var el = $('cloudBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cloudBanner';
+      el.title = T('اضغط للإخفاء', 'Tap to dismiss');
+      el.onclick = function () { el.remove(); };
+      barHost().appendChild(el);
+    }
+    el.style.cssText = barStyle(kind === 'warn' ? '#b45309' : '#047857') + 'cursor:pointer;';
+    el.textContent = text;
+    clearTimeout(el._t);
+    if (kind !== 'warn') el._t = setTimeout(function () { el.remove(); }, 4000);
+  }
+
+  function showNotifyPrompt(onEnable) {
+    if ($('notifyPrompt')) return;
+    var el = document.createElement('div');
+    el.id = 'notifyPrompt';
+    el.style.cssText = barStyle('#1e3a5f');
+    var msg = document.createElement('span');
+    msg.textContent = T('🔔 فعّل الإشعارات عشان توصلك تنبيهات مهامك حتى والموقع مقفول',
+                        '🔔 Enable notifications to get task reminders even when the site is closed');
+    var btn = document.createElement('button');
+    btn.id = 'notifyPromptBtn';
+    btn.textContent = T('تفعيل', 'Enable');
+    btn.style.cssText = 'border:none;border-radius:999px;padding:7px 18px;font-weight:700;cursor:pointer;' +
+      'background:#10b981;color:#fff;min-height:36px;font-family:inherit;';
+    btn.onclick = onEnable;
+    var close = document.createElement('button');
+    close.textContent = '✕';
+    close.setAttribute('aria-label', T('إغلاق', 'Close'));
+    close.style.cssText = 'border:none;background:transparent;color:#cbd5e1;font-size:16px;cursor:pointer;min-height:36px;';
+    close.onclick = hideNotifyPrompt;
+    el.appendChild(msg); el.appendChild(btn); el.appendChild(close);
+    barHost().appendChild(el);
+  }
+  function hideNotifyPrompt() { var el = $('notifyPrompt'); if (el) el.remove(); }
+
+  // ================= الإشعارات (مشتركة بين الوضعين) =================
+  function notifySupported() { return ('Notification' in window) && ('serviceWorker' in navigator); }
+
+  // نص زر الإشعارات في القائمة حسب حالة الإذن
+  function updateNotifyUI() {
+    var btn = $('notifyEnableBtn');
+    if (!btn) return;
+    if (!notifySupported()) { btn.classList.add('hidden'); return; }
+    var p = Notification.permission;
+    btn.textContent = p === 'granted' ? T('🔔 الإشعارات مفعّلة ✅', '🔔 Notifications on ✅')
+                    : p === 'denied'  ? T('🔕 الإشعارات مرفوضة', '🔕 Notifications blocked')
+                    : T('🔔 تفعيل الإشعارات', '🔔 Enable notifications');
+  }
+
+  // لا نطلب الإذن إلا بضغطة من المستخدم (شرط Safari وFirefox والآيفون)
+  function ensureNotifyPermission(allowPrompt) {
+    if (!('Notification' in window)) return Promise.resolve(false);
+    if (Notification.permission === 'granted') return Promise.resolve(true);
+    if (Notification.permission === 'denied' || !allowPrompt) return Promise.resolve(false);
+    return Promise.resolve(Notification.requestPermission()).then(function (p) { return p === 'granted'; });
+  }
+
+  function deniedHint() {
+    showBanner(T('الإشعارات مرفوضة للموقع ده — اضغط 🔒 جنب العنوان ← الإشعارات ← سماح، وبعدين اعمل Refresh',
+                 'Notifications are blocked — click 🔒 next to the address ← Notifications ← Allow, then refresh'), 'warn');
+  }
+
+  // إشعار نظام يظهر حتى لو التبويب في الخلفية (عبر الـ service worker إن وُجد)
+  function showSystemNotification(title, body, tag) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    var opts = { body: body || '', tag: tag || 'task', icon: 'icons/icon-192.png',
+                 badge: 'icons/icon-192.png', lang: isAr ? 'ar' : 'en' };
+    var direct = function () { try { new Notification(title, opts); } catch (e) {} };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (reg) return reg.showNotification(title, opts);
+        direct();
+      }).catch(direct);
+    } else {
+      direct();
+    }
+  }
+
+  function installNotifyHook() {
+    var b = bridge();
+    if (b && b.setNotifyHook) {
+      b.setNotifyHook(function (title, body, tag) { showSystemNotification(title, body, tag); });
+    }
+  }
+
+  // ================= وضع محلي (Firebase غير مُعد أو تعذّر تحميله) =================
   if (!isConfigured() || typeof firebase === 'undefined') {
     document.addEventListener('DOMContentLoaded', function () {
-      showBanner(
-        T('وضع محلي — لتفعيل الدخول والمزامنة والإشعارات، اضبط ملف firebase-config.js',
-          'Local mode — set firebase-config.js to enable login, sync & notifications'),
-        'warn'
-      );
+      installNotifyHook();
+      ['authLogoutBtn', 'authUserChip'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+
+      var nb = $('notifyEnableBtn');
+      if (nb) nb.onclick = function () {
+        if (!notifySupported()) return;
+        if (Notification.permission === 'denied') { deniedHint(); return; }
+        ensureNotifyPermission(true).then(function (ok) {
+          updateNotifyUI();
+          if (ok) showBanner(T('🔔 تم تفعيل الإشعارات (أثناء فتح التطبيق)', '🔔 Notifications enabled (while the app is open)'), 'ok');
+        });
+      };
+      updateNotifyUI();
+
+      showBanner(isConfigured()
+        ? T('تعذّر تحميل Firebase — شغّال في الوضع المحلي. اتأكد من الإنترنت، أو إن مانع الإعلانات/Brave Shields مش حاجب gstatic.com',
+            'Could not load Firebase — running in local mode. Check your connection or ad-blocker (gstatic.com)')
+        : T('وضع محلي — لتفعيل الدخول والمزامنة والإشعارات، اضبط ملف firebase-config.js',
+            'Local mode — set firebase-config.js to enable login, sync & notifications'),
+        'warn');
     });
-    // سجّل إشعارات محلية بسيطة تعتمد على المتصفح فقط (تظهر أثناء فتح التطبيق)
-    wireLocalOnlyNotifications();
     return;
   }
 
@@ -50,8 +175,6 @@
   var OWNER_KEY = 'task-planner-owner-uid'; // صاحب البيانات المحلية الحالية (لمنع تسرّب المهام بين الحسابات)
 
   // ================= الجسر مع التطبيق =================
-  function bridge() { return window.AppBridge || null; }
-
   function getLocalData() {
     var b = bridge();
     if (b && b.getData) return b.getData();
@@ -94,7 +217,7 @@
   // ================= المزامنة =================
   function userDoc() { return db.collection('users').doc(currentUser.uid); }
 
-  // يحفظ المنطقة الزمنية واللغة ليحسب الـ Cloud Function مواعيد الإشعارات بدقة
+  // يحفظ المنطقة الزمنية واللغة ليحسب سكربت التنبيهات المواعيد بدقة
   function saveProfile() {
     if (!currentUser) return;
     var tz = 'UTC';
@@ -104,6 +227,19 @@
       lang: isAr ? 'ar' : 'en',
       email: currentUser.email || null
     }, { merge: true }).catch(function () {});
+  }
+
+  function syncErrText(err) {
+    var code = err && err.code;
+    if (code === 'permission-denied') {
+      return T('Firestore رافض الوصول — انشر قواعد الأمان (Rules) من Firebase Console',
+               'Firestore denied access — publish the security rules in Firebase Console');
+    }
+    if (code === 'unavailable') {
+      return T('مفيش اتصال بـ Firestore دلوقتي — هيتزامن أول ما النت يرجع',
+               'Firestore unavailable — will sync when back online');
+    }
+    return T('تعذّرت المزامنة: ', 'Sync error: ') + ((err && err.message) || err);
   }
 
   function clearLocalTasks() { applyToApp([], []); }
@@ -120,29 +256,23 @@
 
     userDoc().get().then(function (snap) {
       var local = canMergeLocal ? getLocalData() : { tasks: [], completedTasks: [] };
-      if (!snap.exists) {
-        // أول ربط لهذا الحساب
-        applyToApp(local.tasks, local.completedTasks);
-        pushToCloud(local.tasks, local.completedTasks, true);
-      } else {
-        var data = snap.data() || {};
-        var mergedTasks = mergeById(local.tasks, data.tasks || []);
-        var mergedCompleted = mergeById(local.completedTasks, data.completedTasks || []);
-        applyToApp(mergedTasks, mergedCompleted);
-        pushToCloud(mergedTasks, mergedCompleted, true);
-      }
+      var data = (snap.exists && snap.data()) || {};
+      var mergedTasks = mergeById(local.tasks, data.tasks || []);
+      var mergedCompleted = mergeById(local.completedTasks, data.completedTasks || []);
+      applyToApp(mergedTasks, mergedCompleted);
+      pushToCloud(mergedTasks, mergedCompleted, true);
       localStorage.setItem(OWNER_KEY, currentUser.uid);
       listenRealtime();
     }).catch(function (err) {
       console.error('[cloud] sync error', err);
-      showBanner(T('تعذّرت المزامنة: ', 'Sync error: ') + err.message, 'warn');
+      showBanner(syncErrText(err), 'warn');
     });
   }
 
   function listenRealtime() {
     unsubscribeDoc = userDoc().onSnapshot({ includeMetadataChanges: false }, function (snap) {
       if (!snap.exists) return;
-      if (snap.metadata.hasPendingWrites) return; // تجاهل صدى كتابتنا المحلية
+      if (snap.metadata && snap.metadata.hasPendingWrites) return; // تجاهل صدى كتابتنا المحلية
       var data = snap.data() || {};
       applyToApp(data.tasks || [], data.completedTasks || []);
     }, function (err) { console.error('[cloud] snapshot error', err); });
@@ -172,78 +302,76 @@
     pushToCloud(d.tasks, d.completedTasks, false);
   }
 
-  // ================= الإشعارات =================
-  function ensureNotifyPermission() {
-    if (!('Notification' in window)) return Promise.resolve(false);
-    if (Notification.permission === 'granted') return Promise.resolve(true);
-    if (Notification.permission === 'denied') return Promise.resolve(false);
-    return Notification.requestPermission().then(function (p) { return p === 'granted'; });
+  // ================= Push (FCM) =================
+  function pushErrorHint(e) {
+    var m = (e && (e.message || e.code)) || String(e);
+    var n = (e && e.name) || '';
+    if (navigator.brave && /push service|AbortError|Registration failed|token-subscribe/i.test(m + ' ' + n)) {
+      return T('متصفح Brave بيقفل خدمة الإشعارات افتراضيًا: افتح brave://settings/privacy وفعّل "Use Google services for push messaging" وأعد تشغيل Brave — أو جرّب Chrome',
+               'Brave blocks push by default: open brave://settings/privacy, enable "Use Google services for push messaging" and restart Brave — or use Chrome');
+    }
+    return T('تعذّر تفعيل الإشعارات: ', 'Could not enable notifications: ') + m;
   }
 
-  function registerPush() {
-    if (!messaging || !vapidReady() || !('serviceWorker' in navigator)) return;
-    ensureNotifyPermission().then(function (ok) {
-      if (!ok) return;
-      navigator.serviceWorker.register('firebase-messaging-sw.js').then(function (reg) {
+  // يسجّل الجهاز لاستقبال الإشعارات ويحفظ التوكن في حساب المستخدم.
+  // fromClick=true فقط عند ضغطة المستخدم (يُسمح حينها بطلب الإذن وعرض الرسائل)
+  function registerPush(fromClick) {
+    if (!notifySupported() || !messaging) {
+      if (fromClick) showBanner(T('المتصفح ده مش بيدعم الإشعارات الفورية — على الآيفون ضيف الموقع للشاشة الرئيسية الأول',
+                                  'This browser does not support push — on iPhone, add the site to the Home Screen first'), 'warn');
+      return Promise.resolve(false);
+    }
+    if (!vapidReady()) return Promise.resolve(false);
+    if (fromClick && Notification.permission === 'denied') { deniedHint(); return Promise.resolve(false); }
+
+    return ensureNotifyPermission(fromClick).then(function (ok) {
+      updateNotifyUI();
+      if (!ok) return false;
+      return navigator.serviceWorker.register('firebase-messaging-sw.js').then(function (reg) {
         return messaging.getToken({ vapidKey: vapidKey, serviceWorkerRegistration: reg });
       }).then(function (token) {
-        if (!token || !currentUser) return;
-        userDoc().set({
-          fcmTokens: firebase.firestore.FieldValue.arrayUnion(token)
-        }, { merge: true });
-      }).catch(function (e) { console.warn('[cloud] push token error', e); });
-    });
-    // إشعارات تصل أثناء فتح التبويب (foreground)
-    try {
-      messaging.onMessage(function (p) {
-        var n = (p && p.notification) || {};
-        showSystemNotification(n.title || T('تذكير', 'Reminder'), n.body || '', 'fcm');
+        if (!token) throw new Error(T('ماطلعش توكن للجهاز', 'No device token'));
+        if (!currentUser) return;
+        return userDoc().set({ fcmTokens: firebase.firestore.FieldValue.arrayUnion(token) }, { merge: true });
+      }).then(function () {
+        hideNotifyPrompt();
+        if (fromClick) showBanner(T('🔔 تم تفعيل الإشعارات على الجهاز ده', '🔔 Notifications enabled on this device'), 'ok');
+        return true;
+      }).catch(function (e) {
+        console.warn('[cloud] push token error', e);
+        if (fromClick) showBanner(pushErrorHint(e), 'warn');
+        return false;
       });
-    } catch (e) {}
-  }
-
-  // إشعار نظام يظهر حتى لو التبويب في الخلفية (عبر الـ service worker إن توفّر)
-  function showSystemNotification(title, body, tag) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    var opts = { body: body || '', tag: tag || 'task', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', lang: isAr ? 'ar' : 'en' };
-    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
-      navigator.serviceWorker.ready.then(function (reg) {
-        reg.showNotification(title, opts);
-      }).catch(function () { try { new Notification(title, opts); } catch (e) {} });
-    } else {
-      try { new Notification(title, opts); } catch (e) {}
-    }
-  }
-
-  // إشعارات محلية فقط (وضع بدون Firebase)
-  function wireLocalOnlyNotifications() {
-    document.addEventListener('DOMContentLoaded', function () {
-      installNotifyHook();
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(function () {});
-      }
     });
   }
 
-  function installNotifyHook() {
-    var b = bridge();
-    if (b && b.setNotifyHook) {
-      b.setNotifyHook(function (title, body, tag) { showSystemNotification(title, body, tag); });
+  // عند الخروج: شيل الجهاز من حساب المستخدم حتى لا تصل إشعاراته لأي حساب لاحق على نفس الجهاز
+  function detachDeviceToken() {
+    if (!messaging || !currentUser || !notifySupported() || Notification.permission !== 'granted') {
+      return Promise.resolve();
     }
+    return navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) return;
+      return messaging.getToken({ vapidKey: vapidKey, serviceWorkerRegistration: reg }).then(function (token) {
+        if (!token) return;
+        return userDoc().set({ fcmTokens: firebase.firestore.FieldValue.arrayRemove(token) }, { merge: true })
+          .then(function () { return messaging.deleteToken(); });
+      });
+    }).catch(function (e) { console.warn('[cloud] detach token error', e); });
   }
 
   // ================= واجهة الدخول =================
   function showAuthOverlay(show) {
-    var el = document.getElementById('authOverlay');
+    var el = $('authOverlay');
     if (el) el.classList.toggle('hidden', !show);
   }
 
   function wireAuthUI() {
-    var $ = function (id) { return document.getElementById(id); };
     var emailBtn = $('authEmailBtn');
     var googleBtn = $('authGoogleBtn');
     var signupBtn = $('authSignupBtn');
     var logoutBtn = $('authLogoutBtn');
+    var passInput = $('authPassword');
     var msg = $('authMsg');
 
     function setMsg(txt, kind) {
@@ -252,57 +380,54 @@
       msg.style.color = kind === 'err' ? '#e74c3c' : '#10b981';
     }
     function creds() {
-      return { email: ($('authEmail') || {}).value || '', pass: ($('authPassword') || {}).value || '' };
+      return { email: (($('authEmail') || {}).value || '').trim(), pass: (passInput || {}).value || '' };
     }
 
     if (emailBtn) emailBtn.onclick = function () {
       var c = creds();
-      auth.signInWithEmailAndPassword(c.email.trim(), c.pass)
-        .catch(function (e) { setMsg(mapErr(e), 'err'); });
+      setMsg('');
+      auth.signInWithEmailAndPassword(c.email, c.pass).catch(function (e) { setMsg(mapErr(e), 'err'); });
     };
     if (signupBtn) signupBtn.onclick = function () {
       var c = creds();
-      auth.createUserWithEmailAndPassword(c.email.trim(), c.pass)
-        .catch(function (e) { setMsg(mapErr(e), 'err'); });
+      setMsg('');
+      auth.createUserWithEmailAndPassword(c.email, c.pass).catch(function (e) { setMsg(mapErr(e), 'err'); });
     };
     if (googleBtn) googleBtn.onclick = function () {
+      setMsg('');
       var provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider).catch(function (e) { setMsg(mapErr(e), 'err'); });
     };
-    if (logoutBtn) logoutBtn.onclick = function () { auth.signOut(); };
+    if (passInput) passInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && emailBtn) emailBtn.click();
+    });
+    if (logoutBtn) logoutBtn.onclick = function () {
+      // لا تعلّق الخروج لو الشبكة بطيئة
+      var t = setTimeout(function () { auth.signOut(); }, 4000);
+      detachDeviceToken().then(function () { clearTimeout(t); auth.signOut(); });
+    };
   }
 
   function mapErr(e) {
     var m = (e && e.code) || '';
     var dict = {
       'auth/invalid-email': T('بريد غير صالح', 'Invalid email'),
+      'auth/missing-password': T('اكتب كلمة المرور', 'Enter your password'),
       'auth/user-not-found': T('المستخدم غير موجود', 'User not found'),
       'auth/wrong-password': T('كلمة مرور خاطئة', 'Wrong password'),
       'auth/invalid-credential': T('بيانات دخول غير صحيحة', 'Invalid credentials'),
-      'auth/email-already-in-use': T('البريد مستخدم بالفعل', 'Email already in use'),
+      'auth/email-already-in-use': T('البريد مستخدم بالفعل — جرّب تسجيل الدخول', 'Email already in use — try signing in'),
       'auth/weak-password': T('كلمة المرور ضعيفة (6 أحرف على الأقل)', 'Weak password (min 6 chars)'),
-      'auth/popup-blocked': T('المتصفح منع النافذة المنبثقة', 'Popup blocked'),
-      'auth/popup-closed-by-user': T('تم إغلاق نافذة الدخول', 'Popup closed')
+      'auth/operation-not-allowed': T('طريقة الدخول دي مش مفعّلة في Firebase (Authentication ← Sign-in method)',
+                                      'This sign-in method is not enabled in Firebase'),
+      'auth/unauthorized-domain': T('النطاق ده مش مصرّح بيه — ضيفه في Authentication ← Settings ← Authorized domains',
+                                    'This domain is not authorized in Firebase'),
+      'auth/popup-blocked': T('المتصفح منع النافذة المنبثقة — اسمح بالـ popups وجرّب تاني', 'Popup blocked — allow popups and retry'),
+      'auth/popup-closed-by-user': T('تم إغلاق نافذة الدخول', 'Popup closed'),
+      'auth/network-request-failed': T('مشكلة في الاتصال بالإنترنت', 'Network error'),
+      'auth/too-many-requests': T('محاولات كتير — استنى شوية وجرّب تاني', 'Too many attempts — try again later')
     };
     return dict[m] || (e && e.message) || T('خطأ غير متوقع', 'Unexpected error');
-  }
-
-  // ================= البانر العلوي =================
-  function showBanner(text, kind) {
-    var id = 'cloudBanner';
-    var el = document.getElementById(id);
-    if (!el) {
-      el = document.createElement('div');
-      el.id = id;
-      el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:2000;' +
-        'padding:8px 14px;padding-bottom:max(8px,env(safe-area-inset-bottom));' +
-        'font-size:13px;text-align:center;font-family:inherit;color:#fff;' +
-        'box-shadow:0 -2px 10px rgba(0,0,0,.25);';
-      document.body.appendChild(el);
-    }
-    el.style.background = kind === 'warn' ? '#b45309' : '#047857';
-    el.textContent = text;
-    if (kind !== 'warn') setTimeout(function () { if (el) el.remove(); }, 4000);
   }
 
   // ================= إقلاع الطبقة =================
@@ -312,18 +437,26 @@
     var b = bridge();
     if (b && b.setLocalSaveHook) b.setLocalSaveHook(onLocalSave);
 
+    var nb = $('notifyEnableBtn');
+    if (nb) nb.onclick = function () { registerPush(true); };
+    updateNotifyUI();
+
     auth.onAuthStateChanged(function (user) {
       currentUser = user;
       if (user) {
         showAuthOverlay(false);
-        var chip = document.getElementById('authUserChip');
+        var chip = $('authUserChip');
         if (chip) chip.textContent = (user.email || user.displayName || T('مُسجّل', 'Signed in'));
         saveProfile();
         startSync();
-        registerPush();
+        if (notifySupported() && messaging && vapidReady()) {
+          if (Notification.permission === 'granted') registerPush(false);  // تحديث التوكن بهدوء
+          else if (Notification.permission === 'default') showNotifyPrompt(function () { registerPush(true); });
+        }
         showBanner(T('تم تسجيل الدخول — المزامنة مُفعّلة', 'Signed in — sync enabled'), 'ok');
       } else {
         if (unsubscribeDoc) { unsubscribeDoc(); unsubscribeDoc = null; }
+        hideNotifyPrompt();
         // امسح بيانات الحساب من الجهاز عند الخروج حتى لا تتسرّب لأي حساب لاحق
         if (localStorage.getItem(OWNER_KEY)) {
           clearLocalTasks();
