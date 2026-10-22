@@ -1,11 +1,9 @@
 name: Task Reminders
 
 on:
-  schedule:
-    # حاول كل 5 دقائق، لكن بعيدًا عن الدقيقة صفر المزدحمة. GitHub لا يضمن تنفيذ الجدولة.
-    # تعديل cron يُجدّد أيضًا مسؤول (actor) التشغيل المجدول في المستودع.
-    - cron: '2-59/5 * * * *'
-  workflow_dispatch: {}   # للتشغيل اليدوي من تبويب Actions (للاختبار)
+  # Automated dispatch is handled by cron-job.org. The GitHub native schedule is
+  # disabled to avoid competing Telegram polls and duplicate notification checks.
+  workflow_dispatch: {}   # manual testing / external authenticated dispatch
 
 permissions:
   contents: read
