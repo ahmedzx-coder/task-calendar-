@@ -20,6 +20,15 @@
 
   var isAr = (localStorage.getItem('task-planner-lang-v1') || 'ar') === 'ar';
   function T(ar, en) { return isAr ? ar : en; }
+  // The language toggle belongs to index.html. Keep cloud banners and
+  // Firebase menu controls synchronized when users switch languages.
+  window.addEventListener('natija-language-changed', function (event) {
+    isAr = (event.detail && event.detail.language || localStorage.getItem('task-planner-lang-v1') || 'ar') === 'ar';
+    updateNotifyUI();
+    if (typeof telegramIsConnected !== 'undefined') updateTelegramButtons(telegramIsConnected);
+    if (typeof emailReminderEnabled !== 'undefined') updateEmailReminderButton(emailReminderEnabled);
+    if (typeof currentUser !== 'undefined' && currentUser) saveProfile();
+  });
   function $(id) { return document.getElementById(id); }
   function bridge() { return window.AppBridge || null; }
 
@@ -364,7 +373,9 @@
   // user's Firebase document. A trusted GitHub Action resolves the code through the
   // Telegram Bot API and stores the chat ID in a backend-only collection.
   var telegramSnapshotUnsub = null;
+  var telegramIsConnected = false;
   function updateTelegramButtons(connected) {
+    telegramIsConnected = !!connected;
     var connect = $('telegramConnectBtn');
     var disconnect = $('telegramDisconnectBtn');
     if (connect) connect.classList.toggle('hidden', !currentUser || !!connected);
