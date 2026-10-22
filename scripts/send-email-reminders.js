@@ -120,7 +120,7 @@ async function main() {
       for (const event of events) {
         if (!event.due) continue;
         const hashedId = createHash('sha256').update(String(task.id)).digest('hex').slice(0, 24);
-        const key = today + '_' + hashedId + '_' + event.type;
+        const key = today + '_' + hashedId + (task.reminderVersion ? '_' + task.reminderVersion : '') + '_' + event.type;
         const lease = Date.now();
         const claimed = await claimReminder(doc.ref, today, key, lease);
         if (!claimed) continue;
