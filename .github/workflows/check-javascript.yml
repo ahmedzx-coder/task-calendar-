@@ -6,6 +6,8 @@ on:
     paths:
       - 'index.html'
       - 'cloud.js'
+      - 'onboarding.js'
+      - 'onboarding.css'
       - 'scripts/**'
       - 'functions/**'
       - '.github/workflows/check-javascript.yml'
@@ -25,6 +27,7 @@ jobs:
       - name: Check JavaScript files
         run: |
           node --check cloud.js
+          node --check onboarding.js
           for file in scripts/*.js functions/*.js; do
             node --check "$file"
           done
@@ -42,4 +45,21 @@ jobs:
           }
           if (!count) throw new Error('No application inline JavaScript found');
           console.log('Checked ' + count + ' inline application scripts');
+          NODE
+      - name: Validate onboarding wiring
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const cloud = fs.readFileSync('cloud.js', 'utf8');
+          const tour = fs.readFileSync('onboarding.js', 'utf8');
+          assert.match(html, /id="startTourBtn"/);
+          assert.match(html, /onboarding\.js\?v=1/);
+          assert.match(html, /onboarding\.css\?v=1/);
+          assert.match(cloud, /NatijaTour\.maybeStart/);
+          assert.match(cloud, /onboardingVersion: 1/);
+          assert.match(tour, /window\.NatijaTour/);
+          assert.match(tour, /natija-onboarding-completed/);
+          console.log('Onboarding registration, sync and replay are wired');
           NODE
