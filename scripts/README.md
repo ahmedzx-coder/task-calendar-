@@ -57,3 +57,31 @@ Telegram integration runs alongside FCM in the existing Task Reminders GitHub Ac
 - Delivery timing is best-effort and the GitHub schedule may be delayed. A process crash after sending but before storing the receipt could cause a duplicate alert.
 - Existing FCM notifications remain enabled. Telegram notification delivery works only after the bot secret and Firebase service account are correctly configured.
 - Bot uses the public `https://api.telegram.org` endpoints, so outbound access is necessary.
+
+## Render Web Service + cron-job.org (recommended when GitHub scheduled workflows are unreliable)
+
+A free Render **Web Service** is not a free always-on Background Worker. The service can sleep after inactivity, so an external scheduler requests it periodically. Execution is best effort; cold starts or provider delays may cause late notifications.
+
+### Render setup
+1. Create a Render **Web Service** linked to this repository. Do **not** choose Background Worker.
+2. Runtime: **Node**. Set **Root Directory** to `scripts`.
+3. Build command: `npm install --no-audit --no-fund`.
+4. Start command: `npm start` (runs `scripts/http-runner.js`).
+5. Set these **Environment** values in Render's dashboard (never commit them):
+   - `FIREBASE_SERVICE_ACCOUNT`: full JSON service account data from Firebase.
+   - `TELEGRAM_BOT_TOKEN`: the BotFather HTTP API token.
+   - `CRON_SECRET`: a unique random string at least 32 characters long; generate with a password manager.
+6. Deploy. Visit `https://YOUR-SERVICE.onrender.com/health` and expect `{"status":"ok","service":"natija-reminders"}`. This public health endpoint does **not** execute reminders.
+
+### External scheduler setup
+1. At https://cron-job.org create a recurring request to `https://YOUR-SERVICE.onrender.com/run`.
+2. HTTP method: **POST**. Interval: every **2 minutes**.
+3. Add HTTP request header `Authorization: Bearer YOUR_CRON_SECRET` with the **same** secret as Render. Never add the secret as a URL query parameter.
+4. A `200` JSON response with `status: ok` means both workers completed. `401` means wrong secret; `409` means a previous run is active; `500` means at least one worker failed.
+5. Create a task in Natija, verify bot linking, then check cron-job.org execution history and Render Logs.
+
+### Migration checklist
+- **Only after Render + cron-job.org are confirmed working**, disable the GitHub Actions scheduled event in `.github/workflows/reminders.yml` to avoid duplicate sends and competing Telegram `getUpdates` calls. The manual `workflow_dispatch` can remain for emergency diagnosis.
+- Cloud Functions on a one-minute schedule is an alternative when predictable timing matters more than remaining on a free hosting tier.
+- A failed request can have already sent a message before the receipt was saved; retries may duplicate the message. Existing scripts track sent reminders in Firestore.
+- Telegram's chat ID, Firebase service account, and bot token must stay server side.
