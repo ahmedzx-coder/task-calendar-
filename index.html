@@ -812,6 +812,7 @@
       }
     }
 </style>
+<link rel="stylesheet" href="onboarding.css?v=1">
 </head>
 <body>
   <!-- شاشة تسجيل الدخول (تظهر فقط عند ضبط Firebase وعدم تسجيل الدخول) -->
@@ -850,6 +851,7 @@
         <button id="soundBtn" class="menu-item" onclick="openSoundModal()">🎛️ الأصوات</button>
         <button id="statsHeaderBtn" class="menu-item" onclick="openStatsModal()">📊 الإحصائيات</button>
         <button id="aboutBtnHeader" class="menu-item" onclick="openAboutModal()">ℹ️ عن التطبيق</button>
+        <button id="startTourBtn" class="menu-item" onclick="startNatijaTourFromMenu()">🎓 جولة تعريفية</button>
         <div class="menu-sep" role="separator"></div>
         <button id="clearBtnHeader" class="menu-item danger" onclick="clearAllTasks()">🗑️ مسح الكل</button>
         <button id="authLogoutBtn" class="menu-item">🚪 تسجيل الخروج</button>
@@ -1275,6 +1277,7 @@
         statsHeaderBtn: isAr ? '📊 الإحصائيات' : '📊 Stats',
         clearBtnHeader: isAr ? '🗑️ مسح الكل' : '🗑️ Clear all',
         aboutBtnHeader: isAr ? 'ℹ️ عن التطبيق' : 'ℹ️ About',
+        startTourBtn: isAr ? '🎓 جولة تعريفية' : '🎓 Guided tour',
         todayBtn: isAr ? 'اليوم' : 'Today',
         filterAllBtn: isAr ? '🌐 الكل' : '🌐 All',
         filterWorkBtn: isAr ? '💼 عمل' : '💼 Work',
@@ -2844,6 +2847,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="cloud.js"></script>
+  <script src="onboarding.js?v=1"></script>
 </body>
 
 </html>
