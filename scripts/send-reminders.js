@@ -38,7 +38,13 @@ function timeToMinutes(str) {
 }
 
 async function main() {
+  console.log('🔍 فحص Firestore — المشروع:', serviceAccount.project_id, '| المجموعة: users');
   const snap = await db.collection('users').get();
+  console.log('👥 عدد مستندات المستخدمين:', snap.size);
+  if (snap.empty) {
+    console.log('ℹ️ مفيش مستخدمين في Firestore/users بعد. سجّل دخولك على الموقع (يكتب المستند تلقائيًا) ثم أعد تشغيل الـ workflow.');
+    return;
+  }
   let usersChecked = 0, sent = 0;
 
   for (const docSnap of snap.docs) {
