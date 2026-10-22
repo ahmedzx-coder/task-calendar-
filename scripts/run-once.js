@@ -44,7 +44,8 @@ function run(script) {
   }
   const outcomes = await Promise.allSettled([
     run('send-reminders.js'),
-    run('telegram-reminders.js')
+    run('telegram-reminders.js'),
+    run('send-email-reminders.js')
   ]);
   const failures = outcomes.filter(result => result.status === 'rejected');
   if (failures.length) {
