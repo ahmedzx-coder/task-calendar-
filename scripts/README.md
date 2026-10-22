@@ -103,3 +103,31 @@ Railway supports scheduled services that run briefly and exit. This is a better 
 The main `scripts/Dockerfile` runs the scheduled worker by default. Existing Fly HTTP hosting uses `scripts/Dockerfile.web` via `scripts/fly.toml`; the HTTP service can also be started with `npm start`. Railway scheduled jobs start, send Firebase push and Telegram reminders, and exit with success or failure; they never need a public port.
 
 **Cost:** Railway's Free plan includes only $1 of monthly usage credit after a time-limited trial; this is not an unlimited free server. The final cost depends on usage and Railway's account rules. See https://docs.railway.com/pricing/plans and https://docs.railway.com/cron-jobs.
+
+## Email reminders to Gmail (optional, in addition to Telegram)
+
+Natija now has an opt-in **📧 تفعيل تذكيرات الإيميل / Enable email reminders** control in its signed-in main menu. Only the verified Firebase Authentication email address on that account receives these messages, so the app can't be used to email arbitrary addresses.
+
+### Sending account setup (one-time, owner only)
+
+**Important:** The following settings configure the **sender** Gmail account. Each Natija user simply opts in to receive email at their own verified login address. No Gmail password or token is ever put in the public app.
+
+1. Choose a dedicated Gmail account to send reminders (recommended instead of a primary personal Gmail account). Sign in at https://myaccount.google.com/security and turn on **2-Step Verification**.
+2. Go to https://myaccount.google.com/apppasswords and create an **App Password** named *Natija Reminders*. This is a separate 16-character app password, **NOT** the ordinary Google Account password. It may be unavailable for work/school or Advanced Protection accounts.
+3. Open GitHub repository **Settings → Secrets and variables → Actions → New repository secret** and create:
+   - `GMAIL_SENDER_EMAIL` — sending Gmail address, for example `natija-notices@gmail.com` (use the **real** sender, not this example).
+   - `GMAIL_APP_PASSWORD` — the Gmail App Password from the preceding step. Do not commit it or paste it into chat.
+4. Keep `FIREBASE_SERVICE_ACCOUNT` unchanged and configured. The existing cron-job.org → GitHub Actions dispatcher remains unchanged.
+5. Open Natija, sign in, open the menu and click **📧 تفعيل تذكيرات الإيميل**. If the Firebase Authentication email is unverified, Natija requests email verification; verify the message and click the toggle **again** to opt in.
+6. Add a timed task with a reminder. At the next eligible cron run, Natija continues Telegram notifications and also sends an email to the **verified email address you log in with** (which may or may not end in @gmail.com). Check Gmail's Spam folder on the first test.
+
+### Reliability and security
+
+- Email opt-in is **off by default**. Disable from the same menu whenever you want.
+- Email delivery uses `smtp.gmail.com:465` with TLS and Nodemailer; your normal Gmail password must **never** be used. Gmail may block automated SMTP or enforce account limits. For a larger public app, use a transactional email provider.
+- Credentials exist only as server-side Actions Secrets. The email worker exits successfully without sending if either Gmail secret is absent; Telegram notifications keep working independently.
+- The backend obtains the recipient email from **Firebase Admin Authentication**, not the Firestore `email` field, and only sends if `emailVerified` is true.
+- Firestore `emailPushed` tracks reminder deliveries independently from the Telegram receipts. It also uses short reservations to reduce duplicate sends if workers overlap. Task title/appointment data is shared with the sending Gmail provider once the user opts in.
+- The app limits emails per user per day to reduce accidental floods and does not send for past days or completed tasks.
+- Google App Passwords are a security-sensitive fallback and may not be offered to every Google account; OAuth2 is generally the preferred production authentication mechanism.
+- Google documentation: https://support.google.com/mail/answer/185833
