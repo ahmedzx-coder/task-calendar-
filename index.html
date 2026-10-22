@@ -433,6 +433,36 @@
       transition: border-color .15s, box-shadow .15s;
     }
     .form-group input[type="file"] { padding: 8px; font-size: 13px; }
+    /* Friendly date/time controls for both adding and editing tasks */
+    .datetime-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .datetime-control { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+    .datetime-control input { flex: 1; min-width: 0; direction: ltr; text-align: left; font-variant-numeric: tabular-nums; }
+    .picker-open-btn {
+      flex: 0 0 44px; min-width: 44px; min-height: 44px;
+      border: 1.5px solid var(--line); border-radius: var(--r-control);
+      color: var(--text); background: var(--surface-2); font-size: 18px;
+    }
+    .picker-open-btn:hover { border-color: var(--text); }
+    .quick-choices { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .quick-choice {
+      min-height: 34px; border: 1px solid var(--line); border-radius: 999px;
+      padding: 5px 10px; background: var(--surface-2); color: var(--text);
+      font-size: 12px; font-weight: 600;
+    }
+    .quick-choice:hover, .quick-choice:focus-visible { border-color: var(--jade); }
+    .edit-task-content { max-width: 540px; max-height: min(90vh, calc(100dvh - 24px)); }
+    .edit-task-hint { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+    .task-edit-open { overflow: hidden !important; }
+    .today-task-edit {
+      flex: 0 0 auto; min-height: 38px; min-width: 42px; border-radius: 9px;
+      border: 1px solid var(--line); color: var(--text); background: var(--surface);
+    }
+    .task-actions { flex-wrap: wrap; }
+    .task-actions .btn { min-width: 0; min-height: 39px; }
+    @media (max-width: 600px) {
+      .datetime-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+      .edit-task-content { padding: 19px; max-height: calc(100dvh - 20px); }
+    }
     .form-group textarea { min-height: 76px; resize: vertical; }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus,
     .task-search input:focus, .auth-card input:focus {
@@ -873,9 +903,31 @@
         <div class="add-task-section">
           <div class="section-title" id="addTaskSectionTitle">➕ إضافة مهمة جديدة</div>
           <div class="form-group"><label id="labelTaskTitle" for="taskTitle">عنوان المهمة *</label><input type="text" id="taskTitle" placeholder="مثال: اجتماع مع العميل"></div>
-          <div class="form-row">
-            <div class="form-group"><label id="labelTaskDate" for="taskDate">التاريخ *</label><input type="date" id="taskDate"></div>
-            <div class="form-group"><label id="labelTaskTime" for="taskTime">الوقت</label><input type="time" id="taskTime" value="09:00"></div>
+          <div class="form-row datetime-row">
+            <div class="form-group">
+              <label id="labelTaskDate" for="taskDate">التاريخ *</label>
+              <div class="datetime-control">
+                <input type="date" id="taskDate" required>
+                <button type="button" class="picker-open-btn" onclick="openNativePicker('taskDate')" aria-label="فتح التقويم" title="فتح التقويم">📅</button>
+              </div>
+              <div class="quick-choices">
+                <button type="button" class="quick-choice" data-date-choice="today" onclick="chooseQuickDate('taskDate',0)">اليوم</button>
+                <button type="button" class="quick-choice" data-date-choice="tomorrow" onclick="chooseQuickDate('taskDate',1)">بكرة</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label id="labelTaskTime" for="taskTime">الوقت</label>
+              <div class="datetime-control">
+                <input type="time" id="taskTime" value="09:00" step="60">
+                <button type="button" class="picker-open-btn" onclick="openNativePicker('taskTime')" aria-label="اختيار الوقت" title="اختيار الوقت">🕒</button>
+              </div>
+              <div class="quick-choices">
+                <button type="button" class="quick-choice" data-time-choice="now" onclick="chooseQuickTime('taskTime','now')">دلوقتي</button>
+                <button type="button" class="quick-choice" data-time-choice="09:00" onclick="chooseQuickTime('taskTime','09:00')">9 ص</button>
+                <button type="button" class="quick-choice" data-time-choice="14:00" onclick="chooseQuickTime('taskTime','14:00')">2 م</button>
+                <button type="button" class="quick-choice" data-time-choice="18:00" onclick="chooseQuickTime('taskTime','18:00')">6 م</button>
+              </div>
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -954,6 +1006,64 @@
 
       </aside>
     </main>
+  </div>
+
+  <!-- Edit one task without scrolling back to the add form -->
+  <div id="editTaskModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="editTaskModalTitle">
+    <div class="modal-content edit-task-content">
+      <div class="modal-header">
+        <span id="editTaskModalTitle">✏️ تعديل المهمة</span>
+        <button type="button" class="modal-close" onclick="closeEditTaskModal()" aria-label="إغلاق تعديل المهمة">&times;</button>
+      </div>
+      <div class="edit-task-hint" id="editTaskHint">التعديلات تخص المهمة دي فقط، حتى لو متكررة.</div>
+      <div class="form-group"><label id="editTaskTitleLabel" for="editTaskTitle">عنوان المهمة *</label>
+        <input id="editTaskTitle" type="text" maxlength="300" required></div>
+      <div class="form-row datetime-row">
+        <div class="form-group">
+          <label id="editTaskDateLabel" for="editTaskDate">التاريخ *</label>
+          <div class="datetime-control">
+            <input id="editTaskDate" type="date" required>
+            <button type="button" class="picker-open-btn" onclick="openNativePicker('editTaskDate')" aria-label="فتح التقويم" title="فتح التقويم">📅</button>
+          </div>
+          <div class="quick-choices">
+            <button type="button" class="quick-choice" data-date-choice="today" onclick="chooseQuickDate('editTaskDate',0)">اليوم</button>
+            <button type="button" class="quick-choice" data-date-choice="tomorrow" onclick="chooseQuickDate('editTaskDate',1)">بكرة</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label id="editTaskTimeLabel" for="editTaskTime">الوقت</label>
+          <div class="datetime-control">
+            <input id="editTaskTime" type="time" step="60">
+            <button type="button" class="picker-open-btn" onclick="openNativePicker('editTaskTime')" aria-label="اختيار الوقت" title="اختيار الوقت">🕒</button>
+          </div>
+          <div class="quick-choices">
+            <button type="button" class="quick-choice" data-time-choice="now" onclick="chooseQuickTime('editTaskTime','now')">دلوقتي</button>
+            <button type="button" class="quick-choice" data-time-choice="09:00" onclick="chooseQuickTime('editTaskTime','09:00')">9 ص</button>
+            <button type="button" class="quick-choice" data-time-choice="14:00" onclick="chooseQuickTime('editTaskTime','14:00')">2 م</button>
+            <button type="button" class="quick-choice" data-time-choice="18:00" onclick="chooseQuickTime('editTaskTime','18:00')">6 م</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label id="editTaskReminderLabel" for="editTaskReminder">تذكير قبل الموعد</label>
+          <select id="editTaskReminder">
+            <option value="0">بدون تذكير</option>
+            <option value="5">5 دقائق</option>
+            <option value="10">10 دقائق</option>
+            <option value="30">30 دقيقة</option>
+          </select></div>
+        <div class="form-group"><label id="editTaskPriorityLabel" for="editTaskPriority">الأولوية</label>
+          <select id="editTaskPriority"><option value="low">منخفضة 🟢</option><option value="medium">متوسطة 🟡</option><option value="high">عالية 🔴</option></select></div>
+      </div>
+      <div class="form-group"><label id="editTaskCategoryLabel" for="editTaskCategory">التصنيف</label>
+        <select id="editTaskCategory"><option value="work">عمل 💼</option><option value="personal">شخصي 🏠</option><option value="study">دراسة 📚</option><option value="health">صحة 💪</option><option value="other">أخرى ⭐</option></select></div>
+      <div class="form-group"><label id="editTaskNotesLabel" for="editTaskNotes">ملاحظات</label>
+        <textarea id="editTaskNotes" rows="3" placeholder="أي معلومات إضافية..."></textarea></div>
+      <div class="modal-actions">
+        <button type="button" id="cancelEditTaskBtn" class="btn btn-quiet" onclick="closeEditTaskModal()">إلغاء</button>
+        <button type="button" id="saveEditTaskBtn" class="btn btn-primary push-end" onclick="saveEditedTask()">💾 حفظ التعديلات</button>
+      </div>
+    </div>
   </div>
 
   <!-- Modals -->
