@@ -20,7 +20,7 @@ var FIREBASE_CONFIG = {
 };
 
 // مفتاح Web Push (VAPID) — مطلوب للإشعارات
-var FIREBASE_VAPID_KEY = "YOUR_WEB_PUSH_CERTIFICATE_KEY";
+var FIREBASE_VAPID_KEY = "BNMphnnx9s0sebxCgdpkm2MPB9ATzVnRY4Uc1E2qEAoiSmgSK-ytiT85bA7SFh1mCxFsjxBOcdwNl44N249nQSA";
 
 /* يُستخدم نفس الملف داخل الصفحة وداخل الـ service worker */
 if (typeof self !== 'undefined') {
