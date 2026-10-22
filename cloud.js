@@ -458,7 +458,12 @@
   // ================= واجهة الدخول =================
   function showAuthOverlay(show) {
     var el = $('authOverlay');
-    if (el) el.classList.toggle('hidden', !show);
+    if (!el) return;
+    document.body.classList.toggle('auth-locked', !!show);
+    el.classList.toggle('hidden', !show);
+    // The login screen has its own scroll area. Never scroll the calendar
+    // underneath it; reset the viewport when signing out.
+    if (show) window.scrollTo(0, 0);
   }
 
   function wireAuthUI() {
