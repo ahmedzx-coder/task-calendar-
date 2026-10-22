@@ -85,3 +85,21 @@ A free Render **Web Service** is not a free always-on Background Worker. The ser
 - Cloud Functions on a one-minute schedule is an alternative when predictable timing matters more than remaining on a free hosting tier.
 - A failed request can have already sent a message before the receipt was saved; retries may duplicate the message. Existing scripts track sent reminders in Firestore.
 - Telegram's chat ID, Firebase service account, and bot token must stay server side.
+
+## Railway Cron Jobs (alternative to GitHub Actions)
+
+Railway supports scheduled services that run briefly and exit. This is a better fit for timed reminders than keeping an HTTP server running continuously. **A Railway Cron Job can run no more frequently than every 5 minutes, and exact-minute timing is not guaranteed.**
+
+1. Connect the repository `ahmedzx-coder/task-calendar-` to Railway as a **new service**.
+2. Open service **Settings** and set **Root Directory** to `/scripts`. Railway can build the existing Dockerfile in that folder.
+3. In **Variables**, provide these values privately:
+   - `FIREBASE_SERVICE_ACCOUNT`: full Firebase Admin JSON service account credentials.
+   - `TELEGRAM_BOT_TOKEN`: private BotFather API token. **Do not put it in public source code.**
+4. Under **Settings → Deploy**, set **Custom Start Command** to `node run-once.js`.
+5. Under **Settings → Cron Schedule**, set `*/5 * * * *` (UTC). **Do not generate a public domain** for the cron service.
+6. Deploy, review the service's **Cron Runs** and logs, and create a timed Natija task for a real Telegram delivery test.
+7. After Railway has delivered a reminder **automatically**, remove the `schedule` trigger from GitHub's `.github/workflows/reminders.yml` to prevent double notifications and competing bot polling. Keep `workflow_dispatch` if you need an emergency manual test.
+
+The Dockerfile still defaults to the HTTP runner (for the existing Fly/Render approach), so Railway requires the `node run-once.js` **Custom Start Command** override. Scheduled Railway jobs start, execute Firebase push and Telegram reminders, and exit with success or failure; they never need to listen on a port.
+
+**Cost:** Railway's Free plan includes only $1 of monthly usage credit after a time-limited trial; this is not an unlimited free server. The final cost depends on usage and Railway's account rules. See https://docs.railway.com/pricing/plans and https://docs.railway.com/cron-jobs.
