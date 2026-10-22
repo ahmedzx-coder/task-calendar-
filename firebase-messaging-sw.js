@@ -13,16 +13,17 @@ try {
     var messaging = firebase.messaging();
 
     messaging.onBackgroundMessage(function (payload) {
-      var n = (payload && payload.notification) || {};
-      var title = n.title || '📅 تقويم المهام';
-      var options = {
-        body: n.body || '',
+      // الرسائل التي تحتوي notification يعرضها Firebase تلقائيًا —
+      // لا نعرضها مرة ثانية حتى لا يظهر الإشعار مكرّرًا.
+      if (payload && payload.notification) return;
+      var d = (payload && payload.data) || {};
+      self.registration.showNotification(d.title || '📅 تقويم المهام', {
+        body: d.body || '',
         icon: 'icons/icon-192.png',
         badge: 'icons/icon-192.png',
-        tag: (payload.data && payload.data.tag) || 'task',
-        data: payload.data || {}
-      };
-      self.registration.showNotification(title, options);
+        tag: d.tag || 'task',
+        data: d
+      });
     });
   }
 } catch (e) {

@@ -95,7 +95,7 @@ async function main() {
         title: messages[0].title,
         body: messages.map((m) => m.body).join(isAr ? '، ' : ', ')
       },
-      webpush: { fcmOptions: { link: '/' } }
+      webpush: { fcmOptions: { link: 'https://ahmedzx-coder.github.io/task-calendar-/' } }
     });
     sent += res.successCount;
 

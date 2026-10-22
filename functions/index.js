@@ -93,7 +93,7 @@ exports.sendTaskReminders = onSchedule(
           body: messages.map((m) => m.body).join(isAr ? '، ' : ', ')
         },
         data: { tag: messages[0].tag },
-        webpush: { fcmOptions: { link: '/' } }
+        webpush: { fcmOptions: { link: 'https://ahmedzx-coder.github.io/task-calendar-/' } }
       }).then((res) => {
         // أزل التوكنات غير الصالحة
         const invalid = [];
