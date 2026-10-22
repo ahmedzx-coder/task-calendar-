@@ -72,7 +72,7 @@ async function main() {
 
       // تذكير قبل الموعد
       if (rem > 0) {
-        const key = `${today}_${t.id}_rem`;
+        const key = `${today}_${t.id}${t.reminderVersion ? '_' + t.reminderVersion : ''}_rem`;
         if (!pushed[key] && nowMin >= (taskMin - rem) && nowMin < taskMin) {
           pushed[key] = true; changed = true;
           messages.push({ title: isAr ? '🔔 تذكير قبل الموعد' : '🔔 Upcoming task',
@@ -81,7 +81,7 @@ async function main() {
       }
 
       // موعد المهمة (مع نافذة التقاط تعوّض تأخير الجدولة)
-      const keyA = `${today}_${t.id}_alarm`;
+      const keyA = `${today}_${t.id}${t.reminderVersion ? '_' + t.reminderVersion : ''}_alarm`;
       if (!pushed[keyA] && nowMin >= taskMin && (nowMin - taskMin) <= CATCHUP_MIN) {
         pushed[keyA] = true; changed = true;
         messages.push({ title: isAr ? '⏰ حان وقت المهمة' : '⏰ Task time',
