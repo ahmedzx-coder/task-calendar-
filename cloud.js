@@ -47,6 +47,7 @@
   var unsubscribeDoc = null;
   var saveTimer = null;
   var applyingRemote = false;   // يمنع حلقة الدفع عند تطبيق بيانات السحابة
+  var OWNER_KEY = 'task-planner-owner-uid'; // صاحب البيانات المحلية الحالية (لمنع تسرّب المهام بين الحسابات)
 
   // ================= الجسر مع التطبيق =================
   function bridge() { return window.AppBridge || null; }
@@ -105,21 +106,32 @@
     }, { merge: true }).catch(function () {});
   }
 
+  function clearLocalTasks() { applyToApp([], []); }
+
   function startSync() {
     if (unsubscribeDoc) { unsubscribeDoc(); unsubscribeDoc = null; }
+
+    // حماية الخصوصية: لا تدمج مهامًا محلية تخص حسابًا آخر على نفس الجهاز.
+    // الدمج مسموح فقط لو البيانات المحلية مجهولة (استُخدمت قبل أي تسجيل دخول)
+    // أو تخص نفس المستخدم الحالي.
+    var owner = localStorage.getItem(OWNER_KEY);
+    var canMergeLocal = (!owner || owner === currentUser.uid);
+    if (!canMergeLocal) clearLocalTasks();
+
     userDoc().get().then(function (snap) {
-      var local = getLocalData();
+      var local = canMergeLocal ? getLocalData() : { tasks: [], completedTasks: [] };
       if (!snap.exists) {
-        // أول ربط: ارفع المحلي للسحابة
+        // أول ربط لهذا الحساب
+        applyToApp(local.tasks, local.completedTasks);
         pushToCloud(local.tasks, local.completedTasks, true);
       } else {
         var data = snap.data() || {};
         var mergedTasks = mergeById(local.tasks, data.tasks || []);
         var mergedCompleted = mergeById(local.completedTasks, data.completedTasks || []);
         applyToApp(mergedTasks, mergedCompleted);
-        // اكتب الدمج مرة واحدة ليتوافق الطرفان
         pushToCloud(mergedTasks, mergedCompleted, true);
       }
+      localStorage.setItem(OWNER_KEY, currentUser.uid);
       listenRealtime();
     }).catch(function (err) {
       console.error('[cloud] sync error', err);
@@ -312,6 +324,11 @@
         showBanner(T('تم تسجيل الدخول — المزامنة مُفعّلة', 'Signed in — sync enabled'), 'ok');
       } else {
         if (unsubscribeDoc) { unsubscribeDoc(); unsubscribeDoc = null; }
+        // امسح بيانات الحساب من الجهاز عند الخروج حتى لا تتسرّب لأي حساب لاحق
+        if (localStorage.getItem(OWNER_KEY)) {
+          clearLocalTasks();
+          localStorage.removeItem(OWNER_KEY);
+        }
         showAuthOverlay(true);
       }
     });
