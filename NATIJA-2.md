@@ -1,6 +1,6 @@
 # Natija 2.0 — experimental web branch
 
-Branch: `experimental/natija-2-web`, based on `main`. No Android files, Firebase rules, reminder backend, Pages settings or production deployment are changed.
+Branch: `experimental/natija-2-web`, based on `main`. No Android files, Firebase rules or reminder backend are changed. The user has approved merging this web release into main for the existing Pages deployment.
 
 ## Included
 
@@ -36,3 +36,6 @@ Drag a board card to a status column. In the daily planner, drag an event into a
 Sixteen automated tests pass, including the actual scheduled Firebase function running against in-memory Firestore, messaging and clock doubles. They verify due reminders, duplicate suppression, rescheduling and completed-task exclusion without external calls. Browser checks verify Kanban drag, project progress and planner drag. Live delivery remains untested by user choice; no test account or real notification was used.
 
 A separate private Sites project was prepared, but publication is blocked by the execution environment's outbound Git restriction. No hosted URL is claimed and no Pages deployment was changed. Local preview and Actions artifacts remain available.
+
+Date and time fields now open the native picker when any part of the input is clicked, including dynamically rendered end-time and project dates. Keyboard editing remains available.
+
