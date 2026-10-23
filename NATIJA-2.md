@@ -31,11 +31,14 @@ This release implements Calendar/Notion-style workflows inside Natija. It does n
 
 Projects now include optional description and dueDate fields. The Project details view computes completion from linked tasks and flags overdue incomplete projects. Existing projects need no migration.
 
-Drag a board card to a status column. In the daily planner, drag an event into an hour row: the vertical quarter of the row chooses a 15-minute start. Drag the arrow handle into an hour row to choose the end. Rescheduling preserves duration and updates reminderVersion; resizing preserves reminder identity. Invalid or cross-midnight ranges are rejected. Native drag is intended for desktop; status menus and the edit dialog remain the keyboard/touch alternatives.
+Drag a board card to a status column. In the daily planner, drag an event into an hour row: the entire row chooses the exact whole-hour start. Drag the arrow handle into an hour row to choose the end. Rescheduling preserves duration and updates reminderVersion; resizing preserves reminder identity. Invalid or cross-midnight ranges are rejected. Native drag is intended for desktop; status menus and the edit dialog remain the keyboard/touch alternatives.
 
 Sixteen automated tests pass, including the actual scheduled Firebase function running against in-memory Firestore, messaging and clock doubles. They verify due reminders, duplicate suppression, rescheduling and completed-task exclusion without external calls. Browser checks verify Kanban drag, project progress and planner drag. Live delivery remains untested by user choice; no test account or real notification was used.
 
 A separate private Sites project was prepared, but publication is blocked by the execution environment's outbound Git restriction. No hosted URL is claimed and no Pages deployment was changed. Local preview and Actions artifacts remain available.
 
 Date and time fields now open the native picker when any part of the input is clicked, including dynamically rendered end-time and project dates. Keyboard editing remains available.
+
+
+Projects now have a dedicated full-width workspace tab and card gallery, separate from the daily calendar and task-entry sidebar. Project-task creation returns to the task form with the project selected. Both drag movement and end resizing snap to whole hours; manual time input remains precise.
 
