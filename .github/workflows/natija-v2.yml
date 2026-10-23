@@ -1,0 +1,27 @@
+name: Natija 2 web checks and preview artifact
+on:
+  push:
+    branches: ['experimental/natija-2-web']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.cjs
+      - name: Package isolated preview (no Pages deployment)
+        run: |
+          mkdir preview
+          cp index.html cloud.js onboarding.js onboarding.css natija-* firebase-config.js manifest.json preview/
+          cp -r icons preview/
+          printf '<meta http-equiv="refresh" content="0;url=index.html?preview=1">' > preview/preview.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natija-2-web-preview
+          path: preview/

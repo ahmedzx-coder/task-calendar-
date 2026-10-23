@@ -74,13 +74,13 @@
   let deferredLayout = null;
 
   const $ = id => document.getElementById(id);
-  const language = () => (localStorage.getItem('task-planner-lang-v1') === 'en' ? 'en' : 'ar');
+  const language = () => (window.NatijaStorage.getItem('task-planner-lang-v1') === 'en' ? 'en' : 'ar');
   const t = (ar, en) => language() === 'ar' ? ar : en;
   const storeKey = uid => PREFIX + uid;
 
   function markAsSeen() {
     if (!accountId) return;
-    try { localStorage.setItem(storeKey(accountId), '1'); } catch (_e) {}
+    try { window.NatijaStorage.setItem(storeKey(accountId), '1'); } catch (_e) {}
     window.dispatchEvent(new CustomEvent('natija-onboarding-completed', {
       detail: { version: VERSION, uid: accountId }
     }));
@@ -249,7 +249,7 @@
   function maybeStart(uid, isComplete) {
     if (!uid || accountId !== uid) return;
     let locallyComplete = false;
-    try { locallyComplete = localStorage.getItem(storeKey(uid)) === '1'; } catch (_e) {}
+    try { locallyComplete = window.NatijaStorage.getItem(storeKey(uid)) === '1'; } catch (_e) {}
     if (isComplete || locallyComplete) return;
     start();
   }

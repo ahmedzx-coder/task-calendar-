@@ -12,18 +12,18 @@
 
   // هل تم ضبط Firebase فعلاً؟ (المفاتيح الافتراضية تبدأ بـ YOUR_)
   function isConfigured() {
-    return !!(cfg && cfg.apiKey && cfg.apiKey.indexOf('YOUR_') === -1 && cfg.projectId);
+    return !window.NatijaPreview && !!(cfg && cfg.apiKey && cfg.apiKey.indexOf('YOUR_') === -1 && cfg.projectId);
   }
   function vapidReady() {
     return !!(vapidKey && vapidKey.indexOf('YOUR_') === -1);
   }
 
-  var isAr = (localStorage.getItem('task-planner-lang-v1') || 'ar') === 'ar';
+  var isAr = (window.NatijaStorage.getItem('task-planner-lang-v1') || 'ar') === 'ar';
   function T(ar, en) { return isAr ? ar : en; }
   // The language toggle belongs to index.html. Keep cloud banners and
   // Firebase menu controls synchronized when users switch languages.
   window.addEventListener('natija-language-changed', function (event) {
-    isAr = (event.detail && event.detail.language || localStorage.getItem('task-planner-lang-v1') || 'ar') === 'ar';
+    isAr = (event.detail && event.detail.language || window.NatijaStorage.getItem('task-planner-lang-v1') || 'ar') === 'ar';
     updateNotifyUI();
     if (typeof telegramIsConnected !== 'undefined') updateTelegramButtons(telegramIsConnected);
     if (typeof emailReminderEnabled !== 'undefined') updateEmailReminderButton(emailReminderEnabled);
@@ -144,9 +144,13 @@
   // ================= وضع محلي (Firebase غير مُعد أو تعذّر تحميله) =================
   if (!isConfigured() || typeof firebase === 'undefined') {
     document.addEventListener('DOMContentLoaded', function () {
+      if (window.NatijaPreview) {
+        ['authLogoutBtn', 'authUserChip', 'notifyEnableBtn'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
+        return;
+      }
       installNotifyHook();
       ['authLogoutBtn', 'authUserChip'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
-      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+      if (!window.NatijaPreview && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 
       var nb = $('notifyEnableBtn');
       if (nb) nb.onclick = function () {
@@ -188,19 +192,19 @@
     var b = bridge();
     if (b && b.getData) return b.getData();
     return {
-      tasks: JSON.parse(localStorage.getItem('tasks') || '[]'),
-      completedTasks: JSON.parse(localStorage.getItem('completedTasks') || '[]')
+      tasks: JSON.parse(window.NatijaStorage.getItem('tasks') || '[]'),
+      completedTasks: JSON.parse(window.NatijaStorage.getItem('completedTasks') || '[]')
     };
   }
 
-  function applyToApp(tasks, completedTasks) {
+  function applyToApp(tasks, completedTasks, projects) {
     applyingRemote = true;
     try {
       var b = bridge();
-      if (b && b.applyRemote) b.applyRemote(tasks, completedTasks);
+      if (b && b.applyRemote) b.applyRemote(tasks, completedTasks, projects);
       else {
-        localStorage.setItem('tasks', JSON.stringify(tasks || []));
-        localStorage.setItem('completedTasks', JSON.stringify(completedTasks || []));
+        window.NatijaStorage.setItem('tasks', JSON.stringify(tasks || []));
+        window.NatijaStorage.setItem('completedTasks', JSON.stringify(completedTasks || []));
         location.reload();
       }
     } finally {
@@ -259,7 +263,7 @@
     // حماية الخصوصية: لا تدمج مهامًا محلية تخص حسابًا آخر على نفس الجهاز.
     // الدمج مسموح فقط لو البيانات المحلية مجهولة (استُخدمت قبل أي تسجيل دخول)
     // أو تخص نفس المستخدم الحالي.
-    var owner = localStorage.getItem(OWNER_KEY);
+    var owner = window.NatijaStorage.getItem(OWNER_KEY);
     var canMergeLocal = (!owner || owner === currentUser.uid);
     if (!canMergeLocal) clearLocalTasks();
 
@@ -270,9 +274,9 @@
       var data = (snap.exists && snap.data()) || {};
       var mergedTasks = mergeById(local.tasks, data.tasks || []);
       var mergedCompleted = mergeById(local.completedTasks, data.completedTasks || []);
-      applyToApp(mergedTasks, mergedCompleted);
+      applyToApp(mergedTasks, mergedCompleted, mergeById(local.projects || [], data.projects || []));
       pushToCloud(mergedTasks, mergedCompleted, true);
-      localStorage.setItem(OWNER_KEY, currentUser.uid);
+      window.NatijaStorage.setItem(OWNER_KEY, currentUser.uid);
       listenRealtime();
       // Show onboarding once per account, only after its existing task data
       // has loaded. This never writes demo tasks or changes notification settings.
@@ -294,7 +298,7 @@
       if (!snap.exists) return;
       if (snap.metadata && snap.metadata.hasPendingWrites) return; // تجاهل صدى كتابتنا المحلية
       var data = snap.data() || {};
-      applyToApp(data.tasks || [], data.completedTasks || []);
+      applyToApp(data.tasks || [], data.completedTasks || [], data.projects || []);
     }, function (err) { console.error('[cloud] snapshot error', err); });
   }
 
@@ -303,10 +307,14 @@
     var payload = {
       tasks: tasks || [],
       completedTasks: completedTasks || [],
+      projects: getLocalData().projects || [],
+      schemaVersion: 2,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+    var target = userDoc(), ownerUid = currentUser.uid;
     var write = function () {
-      userDoc().set(payload, { merge: true }).catch(function (e) {
+      if (!currentUser || currentUser.uid !== ownerUid) return;
+      target.set(payload, { merge: true }).catch(function (e) {
         console.error('[cloud] write error', e);
       });
     };
@@ -595,9 +603,9 @@
         updateEmailReminderButton(false);
         hideNotifyPrompt();
         // امسح بيانات الحساب من الجهاز عند الخروج حتى لا تتسرّب لأي حساب لاحق
-        if (localStorage.getItem(OWNER_KEY)) {
+        if (window.NatijaStorage.getItem(OWNER_KEY)) {
           clearLocalTasks();
-          localStorage.removeItem(OWNER_KEY);
+          window.NatijaStorage.removeItem(OWNER_KEY);
         }
         showAuthOverlay(true);
       }

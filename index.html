@@ -813,6 +813,9 @@
     }
 </style>
 <link rel="stylesheet" href="onboarding.css?v=1">
+<link rel="stylesheet" href="natija-v2.css">
+<script src="natija-storage.js"></script>
+<script src="natija-model.js"></script>
 </head>
 <body>
   <!-- شاشة تسجيل الدخول (تظهر فقط عند ضبط Firebase وعدم تسجيل الدخول) -->
@@ -1130,8 +1133,8 @@
 
   <script>
     // ================== المتغيرات الأساسية ==================
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-    let completedTasks = JSON.parse(localStorage.getItem('completedTasks')) || [];
+    let tasks = JSON.parse(window.NatijaStorage.getItem('tasks')) || [];
+    let completedTasks = JSON.parse(window.NatijaStorage.getItem('completedTasks')) || [];
     let currentDate = new Date();
     let selectedDate = new Date();
     let viewMode = 'month';
@@ -1143,8 +1146,8 @@
     const SOUND_SETTINGS_KEY = 'task-planner-sound-settings-v1';
     const MONTHLY_GOAL_KEY = 'task-planner-monthly-goal-v1';
 
-    let currentLang = localStorage.getItem(LANG_KEY) || 'ar';
-    let monthlyGoal = parseInt(localStorage.getItem(MONTHLY_GOAL_KEY) || '30', 10);
+    let currentLang = window.NatijaStorage.getItem(LANG_KEY) || 'ar';
+    let monthlyGoal = parseInt(window.NatijaStorage.getItem(MONTHLY_GOAL_KEY) || '30', 10);
 
     const monthNamesMap = {
       ar: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
@@ -1228,7 +1231,7 @@
     function applyTheme(theme, persist = true){
       if(theme === 'dark') document.body.classList.add('dark-mode');
       else document.body.classList.remove('dark-mode');
-      if(persist) localStorage.setItem(THEME_KEY, theme);
+      if(persist) window.NatijaStorage.setItem(THEME_KEY, theme);
       // لون شريط المتصفح على الموبايل يمشي مع ثيم التطبيق
       document.querySelectorAll('meta[name="theme-color"]').forEach(m=>
         m.setAttribute('content', theme === 'dark' ? '#10283A' : '#0F2A3D'));
@@ -1409,7 +1412,7 @@
 
     function toggleLanguage(){
       currentLang = currentLang === 'ar' ? 'en' : 'ar';
-      localStorage.setItem(LANG_KEY, currentLang);
+      window.NatijaStorage.setItem(LANG_KEY, currentLang);
       withViewTransition(applyLanguageStaticTexts);
     }
 
@@ -1425,13 +1428,13 @@
 
     function loadSoundSettings(){
       try {
-        const saved = localStorage.getItem(SOUND_SETTINGS_KEY);
+        const saved = window.NatijaStorage.getItem(SOUND_SETTINGS_KEY);
         if(saved) soundSettings = {...soundSettings, ...JSON.parse(saved)};
       } catch {}
     }
     function saveSoundSettings(){
       try {
-        localStorage.setItem(SOUND_SETTINGS_KEY, JSON.stringify(soundSettings));
+        window.NatijaStorage.setItem(SOUND_SETTINGS_KEY, JSON.stringify(soundSettings));
       } catch {}
     }
 
@@ -1536,8 +1539,8 @@
 
     // ================== حفظ/تحميل المهام ==================
     function saveTasks(shouldRender = true){
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-      localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+      window.NatijaStorage.setItem('tasks', JSON.stringify(tasks));
+      window.NatijaStorage.setItem('completedTasks', JSON.stringify(completedTasks));
       if(shouldRender){
         renderCalendar();
         renderTasks();
@@ -2007,8 +2010,19 @@
       const input = document.getElementById(id);
       if(!input) return;
       try { if(typeof input.showPicker === 'function'){ input.showPicker(); return; } } catch(_e){}
-      input.focus(); input.click();
+      input.focus();
     }
+
+    // Delegate so dynamically rendered planner/project/end-time fields work too.
+    // Keep native keyboard editing and the browser's fallback behavior intact.
+    document.addEventListener('click', function(event){
+      const input = event.target;
+      if(input instanceof HTMLInputElement &&
+         (input.type === 'date' || input.type === 'time') &&
+         !input.disabled && !input.readOnly){
+        openNativePicker(input.id);
+      }
+    });
 
     function openEditTaskFromButton(btn){
       if(!btn) return;
@@ -2221,7 +2235,7 @@
         completingIds.delete(id);
         const t = tasks.find(x=>x.id===id); // ممكن المزامنة تكون غيّرت المصفوفة
         if(!t || t.completed) return;
-        t.completed = true;
+        t.completed = true; t.status = "done"; t.updatedAt = Date.now();
         completedTasks.push({...t, completedAt:new Date().toISOString()});
         saveTasks();
         showToast(currentLang==='ar'?'🎉 أحسنت! تم إنجاز المهمة!':'🎉 Great job!','success');
@@ -2241,7 +2255,7 @@
       if(idx===-1) return;
       const task = tasks[idx];
       if(!task.completed) return;
-      task.completed = false;
+      task.completed = false; task.status = "todo"; task.updatedAt = Date.now();
       const compIndex = completedTasks.findIndex(t=>t.id===id);
       if(compIndex!==-1) completedTasks.splice(compIndex,1);
       saveTasks();
@@ -2421,7 +2435,7 @@
       });
 
       if(changed){
-        localStorage.setItem('tasks', JSON.stringify(tasks));
+        window.NatijaStorage.setItem('tasks', JSON.stringify(tasks));
       }
 
       if(reminderTriggered.length){
@@ -2505,8 +2519,16 @@
       alarmTasks.forEach(task=>{
         const idx = tasks.findIndex(t=>t.id===task.id);
         if(idx===-1) return;
-        tasks[idx].date = todayStr;
+        const snoozedDate = new Date(now); snoozedDate.setMinutes(snoozedDate.getMinutes() + minutes);
+        tasks[idx].date = formatDate(snoozedDate);
+        const duration = window.NatijaModel.interval(tasks[idx]);
         tasks[idx].time = newTime;
+        if(tasks[idx].endTime && duration){
+          const end = (targetMinutes % 1440) + duration.end - duration.start;
+          tasks[idx].endTime = end < 1440 ? String(Math.floor(end/60)).padStart(2,'0')+':'+String(end%60).padStart(2,'0') : '';
+        }
+        tasks[idx].updatedAt = Date.now();
+        tasks[idx].reminderVersion = tasks[idx].updatedAt;
         tasks[idx].alarmNotified = false;
         if(tasks[idx].reminderMinutes>0) tasks[idx].reminderNotified = false;
       });
@@ -2682,7 +2704,7 @@
           const v = parseInt(goalInput.value,10);
           if(!isNaN(v) && v>0){
             monthlyGoal = v;
-            localStorage.setItem(MONTHLY_GOAL_KEY, String(monthlyGoal));
+            window.NatijaStorage.setItem(MONTHLY_GOAL_KEY, String(monthlyGoal));
             showToast(
               currentLang==='ar'
                 ? '🎯 تم تحديث الهدف الشهري'
@@ -2801,8 +2823,8 @@
         const same = JSON.stringify(nt) === JSON.stringify(tasks) && JSON.stringify(nc) === JSON.stringify(completedTasks);
         tasks = nt;
         completedTasks = nc;
-        localStorage.setItem('tasks', JSON.stringify(tasks));
-        localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+        window.NatijaStorage.setItem('tasks', JSON.stringify(tasks));
+        window.NatijaStorage.setItem('completedTasks', JSON.stringify(completedTasks));
         if(same) return;
         renderCalendar(); renderTasks(); renderTodayTasks(); renderTimeline(); updateStats();
       },
@@ -2814,7 +2836,7 @@
       loadSoundSettings();
       // أول زيارة: اتبع وضع الجهاز (فاتح/غامق)، بعد كده اختيار المستخدم
       const prefersDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      const storedTheme = localStorage.getItem(THEME_KEY);
+      const storedTheme = window.NatijaStorage.getItem(THEME_KEY);
       applyTheme(storedTheme || (prefersDark ? 'dark' : 'light'), !!storedTheme);
 
       const dateInput = document.getElementById('taskDate');
@@ -2846,6 +2868,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
   <script src="firebase-config.js"></script>
+  <script src="natija-v2.js"></script>
   <script src="cloud.js"></script>
   <script src="onboarding.js?v=1"></script>
 </body>
