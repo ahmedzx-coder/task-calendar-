@@ -5,6 +5,13 @@
   let dragged=null;
   let boardQuery='';
   let filter='', view='today', projectEditor=null;
+  let renderedScene=null, visibleDay=formatDate(new Date());
+  const motions=new WeakMap();
+  function reveal(el,delay=0){
+    if(!el || reduceMotion() || !el.animate)return;
+    motions.get(el)?.cancel();
+    motions.set(el,el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:220,delay,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'}));
+  }
   const tr=(ar,en)=>currentLang==='ar'?ar:en;
   const host=document.createElement('section'); host.className='n2'; host.id='natijaWorkspace';
   document.querySelector('.calendar-grid').closest('section').after(host);
@@ -90,6 +97,9 @@
     return `<button class="n2-back" data-projects-back>${tr('← كل المشروعات','← All projects')}</button><section class="n2-project-detail"><h3>${esc(p.title)}</h3><p class="n2-description">${esc(p.description||tr('أضف وصفًا من تعديل المشروع.','Add a description using Edit project.'))}</p><p>${tr('موعد التسليم','Due date')}: ${esc(p.dueDate||'—')} ${overdue?tr('· متأخر','· Overdue'):''}</p><label>${tr('الإنجاز','Progress')}: ${progress.done}/${progress.total} (${progress.percent}%)<progress max="100" value="${progress.percent}"></progress></label></section>${board(tasks.filter(t=>t.projectId===p.id))}`;
   }
   function draw(){
+    const scene=[view,filter,formatDate(selectedDate),projectEditor===null?'closed':'editing',boardQuery].join('|');
+    const changedScene=scene!==renderedScene;
+    const oldCards=new Map([...host.querySelectorAll('[data-drag]')].map(el=>[el.dataset.drag,el.textContent+'|'+el.closest('[data-drop-status]')?.dataset.dropStatus]));
     const opened=new Set([...host.querySelectorAll('.n2-card:has(details[open])')].map(el=>el.dataset.drag));
     const columnScroll=new Map([...host.querySelectorAll('[data-drop-status]')].map(el=>[el.dataset.dropStatus,el.querySelector('.n2-column-tasks')?.scrollTop||0]));
     host.parentElement.classList.toggle('n2-project-mode',view==='projects');
@@ -98,7 +108,7 @@
     simpleLabels();
     const scrollTop=host.querySelector('.n2-hours')?.scrollTop||0;
     if(filter&&!projects.some(p=>p.id===filter))filter='';
-    const list=tasks.filter(t=>view==='planner'||!filter||t.projectId===filter), date=formatDate(selectedDate);
+    const list=tasks.filter(t=>M.visibleTask(t,formatDate(new Date()))&&(view==='planner'||!filter||t.projectId===filter)), date=formatDate(selectedDate);
     host.innerHTML=`<h2>${tr('مساحتك لتنظيم المهام','Your task workspace')}</h2>
       ${window.NatijaPreview?`<p class="n2-preview">${tr('معاينة محلية منفصلة — لا مزامنة ولا تنبيهات خلفية','Isolated local preview — no sync or background notifications')}</p>`:''}
       <nav class="n2-nav" aria-label="${tr('عروض التنظيم','Workspace views')}"><button data-view="today" aria-pressed="${view==='today'}">${tr('يومي','My day')}</button><button data-view="planner" aria-pressed="${view==='planner'}">${tr('التقويم','Calendar')}</button><button data-view="board" aria-pressed="${view==='board'}">${tr('كل المهام','All tasks')}</button><button data-view="projects" aria-pressed="${view==='projects'}">${tr('المشروعات','Projects')}</button></nav>
@@ -109,6 +119,14 @@
     const hours=host.querySelector('.n2-hours');if(hours)hours.scrollTop=scrollTop;
     host.querySelectorAll('.n2-card').forEach(el=>{if(opened.has(el.dataset.drag))el.querySelector('details').open=true;});
     host.querySelectorAll('[data-drop-status]').forEach(el=>{el.querySelector('.n2-column-tasks').scrollTop=columnScroll.get(el.dataset.dropStatus)||0;});
+    if(changedScene){
+      reveal(host);
+      if(view==='planner'){reveal(document.querySelector('.calendar-section'));reveal(document.querySelector('.sidebar'),40);}
+      [...host.querySelectorAll('.n2-column,.n2-project-summary,.n2-my-day>.n2-card')].slice(0,12).forEach((el,i)=>reveal(el,Math.min(i*25,125)));
+    }else{
+      [...host.querySelectorAll('[data-drag]')].filter(el=>oldCards.get(el.dataset.drag)!==el.textContent+'|'+el.closest('[data-drop-status]')?.dataset.dropStatus).slice(0,12).forEach(el=>reveal(el));
+    }
+    renderedScene=scene;
   }
   function todayPage(){
     const today=formatDate(new Date()),day=tasks.filter(t=>t.date===today),active=day.filter(t=>!t.completed).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99')),done=day.filter(t=>t.completed);
@@ -122,6 +140,7 @@
       <div>${day.filter(t=>!M.interval(t)).map(card).join('')}</div><div class="n2-hours">${Array.from({length:24},(_,h)=>`<div class="n2-hour" data-drop-hour="${h}"><button data-hour="${h}" aria-label="${tr('أضف مهمة عند','Add task at')} ${h}:00">${String(h).padStart(2,'0')}:00</button><div>${day.filter(t=>M.interval(t)&&Math.floor(M.interval(t).start/60)===h).sort((a,b)=>a.time.localeCompare(b.time)).map(t=>`<div class="n2-event-wrap"><button draggable="true" data-drag="${esc(t.id)}" class="n2-event ${t.completed?'n2-muted':''}" data-edit="${esc(t.id)}">${esc(t.time)}–${esc(t.endTime||'≈30m')} · ${esc(t.title)} ${day.some(o=>o.id!==t.id&&!o.completed&&!t.completed&&M.overlap(t,o))?tr('⚠ تعارض','⚠ Overlap'):''}<small> · ${M.interval(t).end-M.interval(t).start} ${tr('دقيقة','min')}</small></button><button class="n2-resize" draggable="true" data-resize="${esc(t.id)}" data-edit="${esc(t.id)}" aria-label="${tr('تغيير نهاية المهمة','Change task end')}" title="${tr('اسحب إلى وقت النهاية أو اضغط للتعديل','Drag to end time or click to edit')}">↕</button></div>`).join('')}</div></div>`).join('')}</div>`;
   }
   function board(list){
+    list=list.filter(t=>M.visibleTask(t,formatDate(new Date())));
     const query=boardQuery.trim().toLocaleLowerCase();
     const matches=list.filter(t=>!query||[t.title,...(t.subtasks||[]).map(s=>s.title)].join(' ').toLocaleLowerCase().includes(query));
     return `<form id="n2SearchForm" class="n2-toolbar n2-search"><label for="n2Search">${tr('ابحث عن مهمة','Find a task')}<input id="n2Search" type="search" value="${esc(boardQuery)}" placeholder="${tr('اسم المهمة أو مهمة فرعية','Task or subtask name')}"></label><button type="submit">${tr('بحث','Search')}</button>${query?`<button type="button" data-clear-search>${tr('مسح البحث','Clear search')}</button>`:''}<span role="status">${matches.length} / ${list.length} ${tr('مهمة','tasks')}</span></form><p class="n2-hint">${tr('كل التواريخ. اسحب بين الأعمدة أو افتح التفاصيل لتغيير الحالة.','All dates. Drag between columns or open details to change status.')}</p><div class="n2-board">${['todo','doing','done'].map((s,i)=>{const items=matches.filter(t=>M.normalize(t).status===s).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.time||'').localeCompare(b.time||''));return `<section class="n2-column" data-drop-status="${s}"><h3>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]} <span>${items.length}</span></h3><div class="n2-column-tasks" tabindex="0" aria-label="${[tr('مهام للعمل','To do tasks'),tr('مهام قيد التنفيذ','In progress tasks'),tr('مهام مكتملة','Completed tasks')][i]}">${items.map(card).join('')||`<p class="n2-empty">${tr(query?'لا توجد نتائج':'لا توجد مهام',query?'No matching tasks':'No tasks')}</p>`}</div></section>`;}).join('')}</div>`;
@@ -141,6 +160,7 @@
     if(b.dataset.day){const d=new Date(selectedDate);d.setDate(d.getDate()+Number(b.dataset.day));selectDate(d);}
     if(b.hasAttribute('data-hour')||b.hasAttribute('data-new-task')){
       composer.classList.remove('hidden');
+      reveal(composer);
       document.getElementById('taskDate').value=formatDate(view==='today'?new Date():selectedDate);
       if(b.hasAttribute('data-hour'))document.getElementById('taskTime').value=String(b.dataset.hour).padStart(2,'0')+':00';
       document.getElementById('taskProject').value=filter;extraFields.open=!!filter;composer.scrollIntoView({block:'start'});document.getElementById('taskTitle').focus();
@@ -192,4 +212,10 @@
     draw();drafts.filter(Boolean).forEach(d=>fields(d.prefix,d));
   });
   fields('task');draw();
+  function checkDay(){
+    const today=formatDate(new Date());if(today===visibleDay)return;
+    visibleDay=today;renderCalendar();renderTasks();renderTodayTasks();renderTimeline();updateStats();
+  }
+  setInterval(checkDay,60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDay();});
 })();
