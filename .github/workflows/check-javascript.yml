@@ -6,6 +6,10 @@ on:
     paths:
       - 'index.html'
       - 'cloud.js'
+      - 'natija-v2.js'
+      - 'natija-model.js'
+      - 'tests/**'
+      - 'sw.js'
       - 'onboarding.js'
       - 'onboarding.css'
       - 'scripts/**'
@@ -27,10 +31,16 @@ jobs:
       - name: Check JavaScript files
         run: |
           node --check cloud.js
+          node --check natija-v2.js
+          node --check natija-model.js
           node --check onboarding.js
           for file in scripts/*.js functions/*.js; do
             node --check "$file"
           done
+      - name: Test live-saving tasks and projects
+        run: |
+          npm install --no-save --no-audit --no-fund jsdom@26.1.0
+          node tests/live-save-smoke.cjs
       - name: Check inline app JavaScript
         run: |
           node - <<'NODE'
