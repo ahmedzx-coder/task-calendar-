@@ -40,11 +40,14 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK platform
-        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+      - name: Use preinstalled Android SDK on GitHub hosted runner
+        run: |
+          test -n "${ANDROID_HOME}"
+          test -d "${ANDROID_HOME}"
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | head -1)"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --version
+          "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install Capacitor
         run: npm install --no-audit --no-fund
