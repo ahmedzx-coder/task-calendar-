@@ -115,7 +115,7 @@ async function main() {
       const reminder = Math.max(0, Number.parseInt(task.reminderMinutes, 10) || 0);
       const events = [
         { type: 'rem', due: reminder > 0 && nowMin >= taskMin - reminder && nowMin < taskMin },
-        { type: 'alarm', due: nowMin >= taskMin && nowMin - taskMin <= CATCHUP_MIN }
+        { type: 'alarm', due: alarmWasScheduledAhead(task, time, taskMin) && nowMin >= taskMin && nowMin - taskMin <= CATCHUP_MIN }
       ];
       for (const event of events) {
         if (!event.due) continue;
@@ -161,3 +161,10 @@ async function main() {
 }
 
 main().catch((error) => { console.error('Email reminder worker failed:', error.message); process.exitCode = 1; });
+
+// Do not send a due-time alarm for a start that predates creation/rescheduling.
+function alarmWasScheduledAhead(task, clock, minute) {
+  const scheduledAt = clock.set({ hour: Math.floor(minute / 60), minute: minute % 60, second: 0, millisecond: 0 }).toMillis();
+  const scheduledSince = Math.max(Date.parse(task.createdAt) || 0, Number(task.reminderVersion) || 0);
+  return scheduledAt > scheduledSince;
+}

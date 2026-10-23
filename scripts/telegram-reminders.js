@@ -177,7 +177,7 @@ async function deliverReminders() {
       const reminder = Math.max(0, Number.parseInt(task.reminderMinutes, 10) || 0);
       const due = [
         { kind: 'rem', active: reminder > 0 && minutes >= taskMinute - reminder && minutes < taskMinute },
-        { kind: 'alarm', active: minutes >= taskMinute && minutes - taskMinute <= CATCHUP_MIN }
+        { kind: 'alarm', active: alarmWasScheduledAhead(task, time, taskMinute) && minutes >= taskMinute && minutes - taskMinute <= CATCHUP_MIN }
       ];
       for (const item of due) {
         if (!item.active) continue;
@@ -217,3 +217,10 @@ async function main() {
   await deliverReminders();
 }
 main().catch(error => { console.error('Telegram job failed:', error.message); process.exitCode = 1; });
+
+// Do not send a due-time alarm for a start that predates creation/rescheduling.
+function alarmWasScheduledAhead(task, clock, minute) {
+  const scheduledAt = clock.set({ hour: Math.floor(minute / 60), minute: minute % 60, second: 0, millisecond: 0 }).toMillis();
+  const scheduledSince = Math.max(Date.parse(task.createdAt) || 0, Number(task.reminderVersion) || 0);
+  return scheduledAt > scheduledSince;
+}

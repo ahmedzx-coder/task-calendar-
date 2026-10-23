@@ -11,7 +11,7 @@ async function run(data,hour,minute){
   'firebase-admin/app':{initializeApp:()=>{}},
   'firebase-admin/firestore':{getFirestore:()=>db,FieldValue:{arrayRemove:(...tokens)=>tokens}},
   'firebase-admin/messaging':{getMessaging:()=>({sendEachForMulticast:async message=>{sent.push(message);return {responses:[{success:true}]};}})},
-  luxon:{DateTime:{now:()=>({setZone:()=>({hour,minute,toFormat:()=> '2026-10-23'})})}}
+  luxon:{DateTime:{now:()=>({setZone:()=>({hour,minute,toFormat:()=> '2026-10-23',set:({hour,minute})=>({toMillis:()=>Date.UTC(2026,9,23,hour,minute)})})})}}
  };
  vm.runInNewContext(fs.readFileSync('functions/index.js','utf8'),{exports:{},require:name=>{if(!modules[name])throw Error(name);return modules[name];},console});
  await job();return {sent,writes};
@@ -29,4 +29,12 @@ test('drag rescheduling delivers at new time, not original time',async()=>{
 test('done Kanban tasks and future dates produce no delivery',async()=>{
  const data=fixture();data.tasks[0].completed=true;assert.equal((await run(data,10,0)).sent.length,0);
  data.tasks[0].completed=false;data.tasks[0].date='2026-10-24';assert.equal((await run(data,10,0)).sent.length,0);
+});
+test('new past-time task does not produce a catchup alarm',async()=>{
+ const data=fixture();data.tasks[0].createdAt='2026-10-23T10:01:00Z';
+ assert.equal((await run(data,10,2)).sent.length,0);
+});
+test('rescheduling to the past does not produce an alarm',async()=>{
+ const data=fixture();data.tasks[0].reminderVersion=Date.UTC(2026,9,23,10,1);
+ assert.equal((await run(data,10,2)).sent.length,0);
 });

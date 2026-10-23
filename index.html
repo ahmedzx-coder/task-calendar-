@@ -2427,7 +2427,10 @@
           reminderTriggered.push(t);
           changed = true;
         }
-        if(!t.alarmNotified && nowMin >= taskMin){
+        // A task created/rescheduled after its start is historical, not newly due.
+        const scheduledAt = new Date(t.date + 'T' + String(Math.floor(taskMin/60)).padStart(2,'0') + ':' + String(taskMin%60).padStart(2,'0') + ':00').getTime();
+        const scheduledSince = Math.max(Date.parse(t.createdAt) || 0, Number(t.reminderVersion) || 0);
+        if(!t.alarmNotified && scheduledAt > scheduledSince && nowMin >= taskMin && nowMin - taskMin <= 3){
           t.alarmNotified = true;
           alarmTriggered.push(t);
           changed = true;
