@@ -1,7 +1,7 @@
 /* sw.js — خدمة عامل بسيطة لتخزين التطبيق للعمل دون اتصال (PWA)
    تُسجَّل في الوضع المحلي. إشعارات الخلفية تُدار في firebase-messaging-sw.js */
-const CACHE = 'task-calendar-natija-v2';
-const ASSETS = ['./', 'index.html', 'manifest.json', 'natija-storage.js', 'natija-model.js', 'natija-v2.js', 'natija-v2.css', 'cloud.js', 'onboarding.js', 'onboarding.css', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'task-calendar-natija-v3';
+const ASSETS = ['./', 'index.html', 'manifest.json', 'natija-storage.js', 'natija-model.js', 'natija-v2.js?v=20261024-simple-start-2', 'natija-v2.css?v=20261024-simple-start-2', 'cloud.js', 'onboarding.js?v=20261024-simple-start-2', 'onboarding.css?v=1', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})));
@@ -17,13 +17,23 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET') return;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   // الشبكة أولاً ثم الكاش، مع رجوع للكاش عند انقطاع الاتصال
   e.respondWith(
-    fetch(req).then((res) => {
-      const copy = res.clone();
-      caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+    fetch(req, { cache: 'no-cache' }).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {}));
+      }
       return res;
-    }).catch(() => caches.match(req).then((r) => r || caches.match('index.html')))
+    }).catch(async (error) => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+      if (req.mode === 'navigate') {
+        const shell = await caches.match('index.html');
+        if (shell) return shell;
+      }
+      throw error;
+    })
   );
 });
