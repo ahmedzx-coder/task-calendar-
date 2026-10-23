@@ -47,7 +47,13 @@ jobs:
           SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | head -1)"
           test -x "$SDKMANAGER"
           "$SDKMANAGER" --version
-          "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          if [ ! -d "${ANDROID_HOME}/platforms/android-36" ]; then
+            "$SDKMANAGER" --install "platforms;android-36"
+          fi
+          if [ ! -d "${ANDROID_HOME}/build-tools/36.0.0" ]; then
+            "$SDKMANAGER" --install "build-tools;36.0.0"
+          fi
 
       - name: Install Capacitor
         run: npm install --no-audit --no-fund
