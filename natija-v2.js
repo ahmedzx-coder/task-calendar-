@@ -59,17 +59,48 @@
   }
   const oldOpen=openEditTask;
   openEditTask=function(id){const t=tasks.find(t=>String(t.id)===String(id));if(t)fields('editTask',t);oldOpen(id);};
+  // Show the newly created/edited item in its actual date or project view.
+  // Without this, adding a task for tomorrow while on "My day" looks like
+  // the save didn't work, even though the task was persisted.
+  function showSavedTask(task){
+    if(!task || !task.date)return;
+    if(view==='board'){if(filter && task.projectId!==filter)filter='';return;}
+    if(view==='projects'){
+      if(task.projectId && task.projectId===filter)return;
+      if(task.projectId && projects.some(p=>p.id===task.projectId)){
+        filter=task.projectId;
+        return;
+      }
+    }
+    if(view==='today' && task.date===formatDate(new Date()))return;
+    if(view==='planner' && task.date===formatDate(selectedDate))return;
+    const date=new Date(task.date+'T00:00:00');
+    if(Number.isNaN(date.getTime()))return;
+    selectedDate=date;
+    currentDate=new Date(date.getFullYear(),date.getMonth(),1);
+    view='planner';
+    filter='';
+  }
   const oldAdd=addTask;
   addTask=function(){const extra=values('task');if(!extra)return;
-    const before=new Set(tasks.map(t=>t.id)); oldAdd();
-    const added=tasks.filter(t=>!before.has(t.id)); if(!added.length)return;
+    const before=new Set(tasks.map(t=>t.id));oldAdd();
+    const added=tasks.filter(t=>!before.has(t.id));if(!added.length)return;
     added.forEach(t=>Object.assign(t,M.normalize({...t,...extra,subtasks:extra.subtasks.map(s=>({...s})),updatedAt:Date.now()})));
-    saveTasks(); fields('task');extraFields.open=false;composer.classList.add('hidden');host.scrollIntoView({block:'start'});
+    showSavedTask(added[0]);
+    saveTasks();
+    fields('task');extraFields.open=false;composer.classList.add('hidden');
+    host.scrollIntoView({block:'start',behavior:reduceMotion()?'auto':'smooth'});
   };
   const oldEdit=saveEditedTask;
-  saveEditedTask=function(){const t=tasks.find(t=>t.id===editingTaskId);if(!t)return;const extra=values('editTask',t);if(!extra)return;
+  saveEditedTask=function(){
+    const t=tasks.find(t=>t.id===editingTaskId);if(!t)return;
+    const extra=values('editTask',t);if(!extra)return;
     const id=t.id;oldEdit();if(editingTaskId!==null)return;
-    Object.assign(tasks.find(t=>t.id===id),extra);const done=completedTasks.find(t=>t.id===id);if(done)Object.assign(done,extra);saveTasks();
+    const saved=tasks.find(t=>t.id===id);if(!saved)return;
+    Object.assign(saved,extra);
+    const done=completedTasks.find(t=>t.id===id);if(done)Object.assign(done,extra);
+    showSavedTask(saved);
+    saveTasks();
   };
   const oldSave=saveTasks;
   saveTasks=function(render=true){normalize();storage.setItem('natija-projects-v2',JSON.stringify(projects));oldSave(render);if(render)draw();};
@@ -174,6 +205,7 @@
     const p=projects.find(p=>p.id===projectEditor.id);
     if(p){p.title=title;p.description=description;p.dueDate=dueDate;p.updatedAt=Date.now();}else{const p={id:crypto.randomUUID(),title,description,dueDate,updatedAt:Date.now()};projects.push(p);filter=p.id;}
     projectEditor=null;saveTasks();refreshProjects();
+    showToast(tr('تم حفظ المشروع وظهر فورًا','Project saved and updated'),'success');
   });
   host.addEventListener('change',e=>{
     const el=e.target;
