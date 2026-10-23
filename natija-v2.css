@@ -12,3 +12,21 @@ input[type="date"],input[type="time"]{cursor:pointer}
 
 .content.n2-today-mode> :not(#natijaWorkspace):not(.n2-compose){display:none}.content.n2-today-mode #natijaWorkspace{grid-column:1 / -1;grid-row:1;margin-top:0;min-height:60vh}.content.n2-project-mode>.n2-compose:not(.hidden),.content.n2-board-mode>.n2-compose:not(.hidden){display:block}.content>.n2-compose{grid-column:1 / -1;grid-row:auto;max-width:700px;width:100%;box-sizing:border-box;justify-self:center}.n2-compose>button{margin-bottom:20px}.n2-extra-fields{margin:18px 0}.n2-extra-fields summary,.n2-completed summary{cursor:pointer;padding:12px 0;color:var(--muted)}.n2-extra-fields[open] summary{margin-bottom:12px}.n2-my-day{max-width:780px;margin:20px auto}.n2-my-day h3 small{display:block;font-size:.8em;font-weight:normal;color:var(--muted);margin-top:8px}.n2-welcome{padding:30px 20px;border:1px dashed var(--line);border-radius:16px;margin-top:20px;line-height:1.8}.n2-view-guide{line-height:1.7}.n2-actions [data-new-task]{background:var(--accent);color:var(--on-accent);padding:12px 24px;font-weight:700}.n2-my-day .n2-card{padding:16px}
 
+/* Motion is decorative: state changes remain immediate and reduced motion wins. */
+.n2 button,.n2-card,.n2-project-summary{transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+@media(hover:hover){.n2-project-summary:hover{transform:translateY(-3px);box-shadow:0 8px 22px #0001}.n2-card:hover{border-color:#38988399}.n2 button:active{transform:scale(.98)}}
+.n2-drop-active{transition:background-color .15s ease,outline-color .15s ease}
+.n2 details{interpolate-size:allow-keywords}
+@supports selector(details::details-content){
+  .n2 details::details-content{block-size:0;overflow:clip;opacity:0;transition:block-size .22s ease,opacity .18s ease,content-visibility .22s;transition-behavior:allow-discrete}
+  .n2 details[open]::details-content{block-size:auto;opacity:1}
+}
+.main-menu{animation:n2MenuIn .2s ease-out}
+@keyframes n2MenuIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.n2 *,.n2 *::before,.n2 *::after,.n2 details::details-content,.main-menu{animation:none!important;transition:none!important;scroll-behavior:auto!important}.n2-project-summary:hover,.n2 button:active{transform:none}}
+@supports (transition-behavior:allow-discrete){
+  .n2-compose,.main-menu{transition:opacity .18s ease,transform .18s ease,display .18s;transition-behavior:allow-discrete}
+  .n2-compose.hidden{opacity:0;transform:translateY(8px)}
+  .main-menu.hidden{opacity:0;transform:translateX(14px)}
+}
+@media(prefers-reduced-motion:reduce){.n2-compose,.main-menu{transition:none!important}}

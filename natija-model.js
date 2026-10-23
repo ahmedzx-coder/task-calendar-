@@ -34,7 +34,10 @@
     const selected=tasks.filter(t=>t.projectId===projectId), done=selected.filter(t=>t.completed).length;
     return {total:selected.length,done,percent:selected.length?Math.round(done/selected.length*100):0};
   }
-  const api={minutes,normalize,validRange,interval,overlap,update,reschedule,resize,progress};
+  function visibleTask(task,today){
+    return !((task.completed || task.status==='done') && /^\d{4}-\d{2}-\d{2}$/.test(task.date||'') && task.date<today);
+  }
+  const api={minutes,normalize,validRange,interval,overlap,update,reschedule,resize,progress,visibleTask};
   if(typeof module!=='undefined') module.exports=api;
   else root.NatijaModel=api;
 })(typeof window==='undefined' ? globalThis : window);
