@@ -150,7 +150,10 @@
       'Could not check your login. Check your connection and try again.'
     );
     var retry = $('authBootRetryBtn');
-    if (retry) retry.hidden = false;
+    if (retry) {
+      retry.hidden = false;
+      retry.textContent = T('إعادة المحاولة', 'Try again');
+    }
   }
 
   // ================= Firebase fallback =================
