@@ -8,62 +8,10 @@
   const VERSION = 1;
   const PREFIX = 'natija:onboarding:v' + VERSION + ':';
   const STEPS = [
-    {
-      icon: '👋', target: null,
-      title: { ar: 'أهلاً بيك في نتيجة!', en: 'Welcome to Natija!' },
-      body: {
-        ar: 'في أقل من دقيقة هنعرفك إزاي تنظم يومك، تضيف وتعدّل المهام، وتستقبل التذكيرات. الجولة دي مش هتغيّر أي حاجة في مهامك.',
-        en: 'Take a quick tour of your calendar, tasks, editing, and reminders. This tour will not change any of your tasks.'
-      }
-    },
-    {
-      icon: '📅', target: '.calendar-section',
-      title: { ar: 'تقويمك في مكان واحد', en: 'Your calendar at a glance' },
-      body: {
-        ar: 'اختار أي يوم عشان تشوف مهامه. وتقدر تتنقل بين الشهور أو تبدّل من عرض الشهر للأسبوع.',
-        en: 'Select a day to see its tasks. Move between months or switch between month and week views.'
-      }
-    },
-    {
-      icon: '✍️', target: '.add-task-section',
-      title: { ar: 'ضيف أول مهمة', en: 'Add your first task' },
-      body: {
-        ar: 'اكتب عنوان المهمة، واختار التاريخ والساعة والأولوية. أزرار «اليوم» و«بكرة» بتسهّل تحديد الموعد بسرعة.',
-        en: 'Enter a title, date, time, and priority. Quick date and time shortcuts help you schedule tasks faster.'
-      }
-    },
-    {
-      icon: '🔔', target: '#taskReminder',
-      title: { ar: 'خلي نتيجة يفكّرك', en: 'Set a reminder' },
-      body: {
-        ar: 'اختار تذكير قبل الموعد بـ5 أو 10 أو 30 دقيقة. التذكيرات الخارجية بتحتاج ربط وسيلة الإشعار، ووقت وصولها ممكن يختلف قليلًا.',
-        en: 'Choose a reminder 5, 10, or 30 minutes before the task. External reminders require a connected channel and may arrive slightly later.'
-      }
-    },
-    {
-      icon: '✏️', target: '.tasks-section',
-      title: { ar: 'عدّل المهمة في أي وقت', en: 'Edit tasks anytime' },
-      body: {
-        ar: 'بعد إضافة المهمة هتلاقي جنبها زر «✏️ تعديل». غيّر العنوان أو الميعاد أو التذكير من غير ما تمسح المهمة وتبدأ من جديد.',
-        en: 'After adding a task, tap “✏️ Edit” to change its title, schedule, or reminder without deleting it.'
-      }
-    },
-    {
-      icon: '✈️', target: '#menuToggleBtn',
-      title: { ar: 'Telegram وGmail والإعدادات', en: 'Telegram, Gmail & settings' },
-      body: {
-        ar: 'من زر القائمة تقدر تربط Telegram وتفعّل تذكيرات الإيميل والإشعارات، وتغيّر اللغة والوضع الليلي. ربط وسائل التذكير اختياري.',
-        en: 'Open the menu to connect Telegram, enable email or device notifications, switch language, and choose dark mode. All reminder channels are optional.'
-      }
-    },
-    {
-      icon: '🚀', target: null,
-      title: { ar: 'جاهز تبدأ!', en: 'You’re ready to go!' },
-      body: {
-        ar: 'ابدأ بأول مهمة في يومك. ولو حبيت تشوف الشرح تاني، افتح القائمة واختار «🎓 جولة تعريفية».',
-        en: 'Try adding your first task. You can replay this tour anytime from the menu under “🎓 Guided tour”.'
-      }
-    }
+    { icon:'👋', target:'[data-view="today"]', title:{ar:'ابدأ من «يومي»',en:'Start with My day'}, body:{ar:'هنا مهام النهارده فقط. المهام في الأيام الأخرى موجودة في «كل المهام».',en:'See today’s tasks here. Tasks on other dates are available under All tasks.'} },
+    { icon:'✍️', target:'[data-new-task]', title:{ar:'أضف مهمة واحدة',en:'Add one task'}, body:{ar:'اضغط «+ مهمة»، اكتب اسمها وحدد التاريخ، ثم احفظ. التذكير والتكرار والمشروع تحت «خيارات إضافية».',en:'Select + Task, enter a name and date, then save. Reminders, repeats and projects are under More options.'} },
+    { icon:'📅', target:'.n2-nav', title:{ar:'اختار العرض المناسب',en:'Choose a view'}, body:{ar:'«التقويم» لترتيب المواعيد. «كل المهام» لمتابعة ما بدأ وما اكتمل. «المشروعات» لجمع مهام هدف واحد. افتح اسم أي مهمة لتعديلها.',en:'Calendar is for scheduling. All tasks tracks progress. Projects groups tasks for one goal. Open any task name to edit it.'} },
+    { icon:'✅', target:'#menuToggleBtn', title:{ar:'الباقي وقت ما تحتاجه',en:'More when you need it'}, body:{ar:'اللغة والإحصائيات ووسائل التذكير في القائمة. تقدر ترجع للجولة دي منها في أي وقت. ابدأ بمهمة واحدة.',en:'Language, statistics and reminder channels are in the menu. Replay this tour there anytime. Start with one task.'} }
   ];
 
   let active = false;
