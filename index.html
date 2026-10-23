@@ -1806,7 +1806,6 @@
       const selStr = formatDate(selectedDate);
       let dayTasks = tasks.filter(t=>t.date===selStr && window.NatijaModel.visibleTask(t,formatDate(new Date())));
 
-      tasksToShow = tasksToShow.filter(t=>window.NatijaModel.visibleTask(t,formatDate(new Date())));
       if(currentCategoryFilter!=='all'){
         dayTasks = dayTasks.filter(t=>t.category===currentCategoryFilter);
       }
@@ -1877,6 +1876,7 @@
           : 'No tasks for '+formatDateDisplay(selStr);
       }
 
+      tasksToShow = tasksToShow.filter(t=>window.NatijaModel.visibleTask(t,formatDate(new Date())));
       if(currentCategoryFilter!=='all'){
         tasksToShow = tasksToShow.filter(t=>t.category===currentCategoryFilter);
       }
