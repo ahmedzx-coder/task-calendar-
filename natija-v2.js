@@ -4,10 +4,23 @@
   let projects=JSON.parse(storage.getItem('natija-projects-v2') || '[]');
   let dragged=null;
   let boardQuery='';
-  let filter='', view='planner', projectEditor=null;
+  let filter='', view='today', projectEditor=null;
   const tr=(ar,en)=>currentLang==='ar'?ar:en;
   const host=document.createElement('section'); host.className='n2'; host.id='natijaWorkspace';
   document.querySelector('.calendar-grid').closest('section').after(host);
+  const composer=document.createElement('section');composer.className='n2 n2-compose hidden';
+  const composeClose=document.createElement('button');composeClose.type='button';
+  composeClose.addEventListener('click',()=>{composer.classList.add('hidden');host.querySelector('[data-new-task]')?.focus();});
+  composer.append(composeClose,document.querySelector('.add-task-section'));host.after(composer);
+  const extraFields=document.createElement('details');extraFields.className='n2-extra-fields';
+  const extraSummary=document.createElement('summary');extraFields.append(extraSummary);
+  const firstExtra=document.getElementById('taskReminder').closest('.form-row');
+  firstExtra.before(extraFields);
+  while(extraFields.nextElementSibling&&extraFields.nextElementSibling.id!=='addTaskBtn')extraFields.append(extraFields.nextElementSibling);
+  function simpleLabels(){
+    composeClose.textContent=tr('إغلاق نموذج الإضافة','Close task form');
+    extraSummary.textContent=tr('خيارات إضافية: تذكير، تكرار، مشروع وملاحظات','More options: reminders, repeats, project and notes');
+  }
   const normalize=()=>{ tasks=tasks.map(M.normalize); completedTasks=completedTasks.map(c=>M.normalize({...c,...tasks.find(t=>t.id===c.id)})); };
   normalize(); // Additive and deterministic: no timestamp or reminder state is changed.
   function options(value,all=false) {
@@ -44,7 +57,7 @@
     const before=new Set(tasks.map(t=>t.id)); oldAdd();
     const added=tasks.filter(t=>!before.has(t.id)); if(!added.length)return;
     added.forEach(t=>Object.assign(t,M.normalize({...t,...extra,subtasks:extra.subtasks.map(s=>({...s})),updatedAt:Date.now()})));
-    saveTasks(); fields('task');
+    saveTasks(); fields('task');extraFields.open=false;composer.classList.add('hidden');host.scrollIntoView({block:'start'});
   };
   const oldEdit=saveEditedTask;
   saveEditedTask=function(){const t=tasks.find(t=>t.id===editingTaskId);if(!t)return;const extra=values('editTask',t);if(!extra)return;
@@ -81,18 +94,26 @@
     const columnScroll=new Map([...host.querySelectorAll('[data-drop-status]')].map(el=>[el.dataset.dropStatus,el.querySelector('.n2-column-tasks')?.scrollTop||0]));
     host.parentElement.classList.toggle('n2-project-mode',view==='projects');
     host.parentElement.classList.toggle('n2-board-mode',view==='board');
+    host.parentElement.classList.toggle('n2-today-mode',view==='today');
+    simpleLabels();
     const scrollTop=host.querySelector('.n2-hours')?.scrollTop||0;
     if(filter&&!projects.some(p=>p.id===filter))filter='';
     const list=tasks.filter(t=>view==='planner'||!filter||t.projectId===filter), date=formatDate(selectedDate);
-    host.innerHTML=`<h2>Natija 2.0</h2><p>${tr('خطّط يومك، وحرّك مشروعاتك للأمام','Plan your day. Move your projects forward.')}</p>
+    host.innerHTML=`<h2>${tr('مساحتك لتنظيم المهام','Your task workspace')}</h2>
       ${window.NatijaPreview?`<p class="n2-preview">${tr('معاينة محلية منفصلة — لا مزامنة ولا تنبيهات خلفية','Isolated local preview — no sync or background notifications')}</p>`:''}
-      <nav class="n2-nav" aria-label="${tr('عروض التنظيم','Workspace views')}"><button data-view="planner" aria-pressed="${view==='planner'}">${tr('مخطط اليوم','Day planner')}</button><button data-view="board" aria-pressed="${view==='board'}">${tr('لوحة المهام','Task board')}</button><button data-view="projects" aria-pressed="${view==='projects'}">${tr('المشروعات','Projects')}</button></nav>
+      <nav class="n2-nav" aria-label="${tr('عروض التنظيم','Workspace views')}"><button data-view="today" aria-pressed="${view==='today'}">${tr('يومي','My day')}</button><button data-view="planner" aria-pressed="${view==='planner'}">${tr('التقويم','Calendar')}</button><button data-view="board" aria-pressed="${view==='board'}">${tr('كل المهام','All tasks')}</button><button data-view="projects" aria-pressed="${view==='projects'}">${tr('المشروعات','Projects')}</button></nav>
+      <p class="n2-view-guide">${view==='today'?tr('ابدأ هنا: أضف ما تريد إنجازه اليوم. افتح أي مهمة لتعديلها.','Start here: add what you want to do today. Open any task to edit it.'):view==='planner'?tr('اختار يومًا من التقويم، ورتّب مواعيدك بالسحب بين الساعات.','Choose a calendar day and drag tasks between hours to plan your schedule.'):view==='board'?tr('كل مهامك في مكان واحد، مرتبة حسب حالتها. ابحث أو صفّي بالمشروع.','All your tasks, grouped by status. Search or filter by project.'):tr('اجمع المهام المرتبطة بهدف واحد داخل مشروع، وتابع تقدمها.','Group tasks for one goal into a project and follow its progress.')}</p>
       <div class="n2-toolbar n2-actions">${view==='projects'?`<button data-new-project>${tr('+ مشروع جديد','+ New project')}</button>${filter?`<button data-rename>${tr('تعديل المشروع','Edit project')}</button><button data-new-task>${tr('+ مهمة للمشروع','+ Project task')}</button>`:''}`:`${view==='board'?`<label>${tr('تصفية بالمشروع','Filter by project')}<select id="n2Filter">${options(filter,true)}</select></label>`:''}<button data-new-task>${tr('+ مهمة','+ Task')}</button>`}</div>
       ${projectEditor!==null?`<form id="n2ProjectForm" class="n2-toolbar"><label>${tr('اسم المشروع','Project name')}<input id="n2ProjectName" required maxlength="120" value="${esc(projectEditor.title||'')}"></label><label>${tr('وصف المشروع','Description')}<textarea id="n2ProjectDescription" maxlength="2000">${esc(projectEditor.description||'')}</textarea></label><label>${tr('موعد التسليم','Due date')}<input type="date" id="n2ProjectDue" value="${esc(projectEditor.dueDate||'')}"></label><button type="submit">${tr('حفظ المشروع','Save project')}</button><button type="button" data-cancel-project>${tr('إلغاء','Cancel')}</button></form>`:''}
-      ${view==='planner'?planner(list,date):view==='projects'?projectPage():board(list)}`;
+      ${view==='today'?todayPage():view==='planner'?planner(list,date):view==='projects'?projectPage():board(list)}`;
     const hours=host.querySelector('.n2-hours');if(hours)hours.scrollTop=scrollTop;
     host.querySelectorAll('.n2-card').forEach(el=>{if(opened.has(el.dataset.drag))el.querySelector('details').open=true;});
     host.querySelectorAll('[data-drop-status]').forEach(el=>{el.querySelector('.n2-column-tasks').scrollTop=columnScroll.get(el.dataset.dropStatus)||0;});
+  }
+  function todayPage(){
+    const today=formatDate(new Date()),day=tasks.filter(t=>t.date===today),active=day.filter(t=>!t.completed).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99')),done=day.filter(t=>t.completed);
+    const other=tasks.filter(t=>!t.completed&&t.date!==today).length;
+    return `<section class="n2-my-day"><h3>${tr('مهام اليوم','Today’s tasks')} <small>${esc(today)}</small></h3>${active.length?active.map(card).join(''):`<div class="n2-welcome"><h3>${tr(day.length?'أنجزت مهام اليوم 🎉':'يومك يبدأ بمهمة واحدة',day.length?'Today’s tasks are done 🎉':'Start with one task')}</h3><p>${tr('اضغط «+ مهمة» بالأعلى، اكتب اسمها وحدد موعدها، ثم احفظ. باقي التفاصيل اختيارية.','Select “+ Task” above, enter a name and date, then save. Everything else is optional.')}</p></div>`}${other?`<p><button data-view="board">${tr('مهام أخرى لم تُنجز بعد','Other unfinished tasks')} (${other})</button></p>`:''}${done.length?`<details class="n2-completed"><summary>${tr('تم إنجازها اليوم','Completed today')} (${done.length})</summary>${done.map(card).join('')}</details>`:''}</section>`;
   }
   function planner(list,date){
     const day=list.filter(t=>t.date===date);
@@ -109,7 +130,7 @@
     const b=e.target.closest('button');if(!b)return;
     if(b.hasAttribute('data-clear-search')){boardQuery='';draw();document.getElementById('n2Search').focus();}
     if(b.dataset.project){filter=b.dataset.project;view='projects';draw();}
-    if(b.dataset.view){view=b.dataset.view;filter='';boardQuery='';projectEditor=null;draw();}
+    if(b.dataset.view){view=b.dataset.view;filter='';boardQuery='';projectEditor=null;composer.classList.add('hidden');draw();}
     if(b.hasAttribute('data-projects-back')){filter='';projectEditor=null;draw();}
     if(b.hasAttribute('data-edit'))openEditTask(b.dataset.edit);
     if(b.hasAttribute('data-new-project')||b.hasAttribute('data-rename')){
@@ -119,10 +140,10 @@
     if(b.hasAttribute('data-cancel-project')){projectEditor=null;draw();}
     if(b.dataset.day){const d=new Date(selectedDate);d.setDate(d.getDate()+Number(b.dataset.day));selectDate(d);}
     if(b.hasAttribute('data-hour')||b.hasAttribute('data-new-task')){
-      if(view!=='planner'){view='planner';draw();}
-      document.getElementById('taskDate').value=formatDate(selectedDate);
+      composer.classList.remove('hidden');
+      document.getElementById('taskDate').value=formatDate(view==='today'?new Date():selectedDate);
       if(b.hasAttribute('data-hour'))document.getElementById('taskTime').value=String(b.dataset.hour).padStart(2,'0')+':00';
-      document.getElementById('taskProject').value=filter;document.getElementById('taskTitle').focus();
+      document.getElementById('taskProject').value=filter;extraFields.open=!!filter;composer.scrollIntoView({block:'start'});document.getElementById('taskTitle').focus();
     }
   });
   host.addEventListener('submit',e=>{
