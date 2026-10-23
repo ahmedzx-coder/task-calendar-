@@ -37,7 +37,32 @@
   function visibleTask(task,today){
     return !((task.completed || task.status==='done') && /^\d{4}-\d{2}-\d{2}$/.test(task.date||'') && task.date<today);
   }
-  const api={minutes,normalize,validRange,interval,overlap,update,reschedule,resize,progress,visibleTask};
+  // Decide which workspace screen should show the task immediately after save.
+  // Pure helper: never mutates a task, changes a reminder or writes to storage.
+  function savedTaskDestination(task, state) {
+    const next = {...state}, today = state.today;
+    if (next.view === 'today' && task.date !== today) {
+      next.view = 'planner';
+      next.date = task.date;
+    } else if (next.view === 'planner' && task.date !== next.date) {
+      next.date = task.date;
+    } else if (next.view === 'projects' && task.projectId !== next.filter) {
+      if (task.projectId && (state.projectIds || []).includes(task.projectId)) {
+        next.filter = task.projectId;
+      } else {
+        next.view = 'board';
+        next.filter = '';
+        next.boardQuery = '';
+      }
+    } else if (next.view === 'board') {
+      // Old search/project filters must not conceal the task just saved.
+      if (next.filter && next.filter !== task.projectId) next.filter = '';
+      const words = [task.title, ...(task.subtasks || []).map(s => s.title)].join(' ').toLocaleLowerCase();
+      if (next.boardQuery && !words.includes(next.boardQuery.trim().toLocaleLowerCase())) next.boardQuery = '';
+    }
+    return next;
+  }
+  const api={minutes,normalize,validRange,interval,overlap,update,reschedule,resize,progress,visibleTask,savedTaskDestination};
   if(typeof module!=='undefined') module.exports=api;
   else root.NatijaModel=api;
 })(typeof window==='undefined' ? globalThis : window);
