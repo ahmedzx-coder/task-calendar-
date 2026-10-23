@@ -153,40 +153,23 @@
     if (retry) retry.hidden = false;
   }
 
-  // ================= وضع محلي (Firebase غير مُعد أو تعذّر تحميله) =================
+  // ================= Firebase fallback =================
+  // The special isolated ?preview=1 view is intentionally public. Otherwise
+  // fail closed if Firebase is unavailable, so tasks never flash unauthenticated.
   if (!isConfigured() || typeof firebase === 'undefined') {
-    document.addEventListener('DOMContentLoaded', function () {
+    var showFallback = function () {
       if (window.NatijaPreview) {
-        ['authLogoutBtn', 'authUserChip', 'notifyEnableBtn'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
-        document.documentElement.classList.remove('auth-pending');
-        return;
-      }
-      // On the published site, offline/Firebase errors must not silently
-      // reveal tasks belonging to the last logged-in account.
-      showAuthBootError();
-      return;
-      installNotifyHook();
-      ['authLogoutBtn', 'authUserChip'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
-      if (!window.NatijaPreview && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
-
-      var nb = $('notifyEnableBtn');
-      if (nb) nb.onclick = function () {
-        if (!notifySupported()) return;
-        if (Notification.permission === 'denied') { deniedHint(); return; }
-        ensureNotifyPermission(true).then(function (ok) {
-          updateNotifyUI();
-          if (ok) showBanner(T('🔔 تم تفعيل الإشعارات (أثناء فتح التطبيق)', '🔔 Notifications enabled (while the app is open)'), 'ok');
+        ['authLogoutBtn', 'authUserChip', 'notifyEnableBtn'].forEach(function (id) {
+          var el = $(id);
+          if (el) el.classList.add('hidden');
         });
-      };
-      updateNotifyUI();
-
-      showBanner(isConfigured()
-        ? T('تعذّر تحميل Firebase — شغّال في الوضع المحلي. اتأكد من الإنترنت، أو إن مانع الإعلانات/Brave Shields مش حاجب gstatic.com',
-            'Could not load Firebase — running in local mode. Check your connection or ad-blocker (gstatic.com)')
-        : T('وضع محلي — لتفعيل الدخول والمزامنة والإشعارات، اضبط ملف firebase-config.js',
-            'Local mode — set firebase-config.js to enable login, sync & notifications'),
-        'warn');
-    });
+        document.documentElement.classList.remove('auth-pending');
+      } else {
+        showAuthBootError();
+      }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showFallback);
+    else showFallback();
     return;
   }
 
