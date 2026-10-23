@@ -1,8 +1,53 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" class="auth-pending">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- Critical first-paint authentication gate: renders before the calendar CSS/JS. -->
+  <style id="auth-first-paint">
+    html.auth-pending body {
+      overflow: hidden !important;
+      background: #0F2A3D !important;
+    }
+    html.auth-pending body > .container,
+    html.auth-pending body > .modal,
+    html.auth-pending body > #authOverlay {
+      display: none !important;
+    }
+    #authBootScreen { display: none; }
+    html.auth-pending #authBootScreen {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 13px;
+      box-sizing: border-box; padding: 24px;
+      background: #0F2A3D; color: #E3ECF3;
+      font-family: 'Alexandria', system-ui, sans-serif;
+      text-align: center;
+    }
+    #authBootScreen img { width: 64px; height: 64px; border-radius: 16px; }
+    #authBootScreen strong { font-size: 25px; line-height: 1.5; }
+    #authBootMessage { font-size: 14px; line-height: 1.9; margin: 0; max-width: 370px; }
+    #authBootRetryBtn {
+      background: #3CC992; color: #082335; border: 0; border-radius: 12px;
+      font: inherit; font-weight: 700; min-height: 44px; padding: 10px 20px;
+    }
+    #authBootRetryBtn[hidden] { display: none !important; }
+  </style>
+  <script>
+    // If Firebase scripts/auth initialization hang, offer a retry—not the task UI.
+    window.setTimeout(function () {
+      if (!document.documentElement.classList.contains('auth-pending')) return;
+      var text = document.getElementById('authBootMessage');
+      var retry = document.getElementById('authBootRetryBtn');
+      var isEn = false;
+      try { isEn = localStorage.getItem('task-planner-lang-v1') === 'en'; } catch (_e) {}
+      if (text) text.textContent = isEn
+        ? 'Sign-in is taking longer than expected. Check your connection.'
+        : 'تسجيل الدخول بياخد وقت أطول من المعتاد. اتأكد من الإنترنت.';
+      if (retry) { retry.hidden = false; retry.textContent = isEn ? 'Try again' : 'إعادة المحاولة'; }
+    }, 15000);
+  </script>
+
   <meta name="theme-color" content="#102a43" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)">
   <meta name="mobile-web-app-capable" content="yes">
@@ -830,6 +875,13 @@
 <script src="natija-model.js?v=20261024-motion-history-1"></script>
 </head>
 <body>
+  <!-- No application content is shown until Firebase confirms the auth state. -->
+  <div id="authBootScreen" role="status" aria-live="polite" aria-atomic="true">
+    <img src="icons/icon-192.png" width="64" height="64" alt="">
+    <strong>نتيجة · Natija</strong>
+    <p id="authBootMessage">جاري التأكد من تسجيل الدخول…</p>
+    <button type="button" id="authBootRetryBtn" hidden onclick="location.reload()">إعادة المحاولة</button>
+  </div>
   <!-- شاشة تسجيل الدخول (تظهر فقط عند ضبط Firebase وعدم تسجيل الدخول) -->
   <div id="authOverlay" class="auth-overlay hidden">
     <div class="auth-card">
