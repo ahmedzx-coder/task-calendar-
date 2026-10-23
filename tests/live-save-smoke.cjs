@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
+const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -19,7 +20,9 @@ w.HTMLCanvasElement.prototype.getContext = () => null;
 if (typeof w.crypto.randomUUID !== 'function') {
   Object.defineProperty(w.crypto,'randomUUID',{value:()=>String(Date.now())+'-'+Math.random()});
 }
-const loadFile = name => w.eval(fs.readFileSync(path.join(root, name), 'utf8'));
+const context = dom.getInternalVMContext();
+const run = (source, filename) => new vm.Script(source, {filename}).runInContext(context);
+const loadFile = name => run(fs.readFileSync(path.join(root, name), 'utf8'), name);
 const appInline = [...index.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
   .filter(match => !/\bsrc\s*=/.test(match[1]) && !/application\/ld\+json/i.test(match[1]))
   .map(match => match[2]).find(script => script.includes('function addTask()'));
@@ -28,7 +31,7 @@ assert.ok(appInline,'Main application script found');
 try {
   loadFile('natija-storage.js');
   loadFile('natija-model.js');
-  w.eval(appInline);
+  run(appInline, 'index.inline.js');
   loadFile('natija-v2.js');
 
   const host = w.document.getElementById('natijaWorkspace');
