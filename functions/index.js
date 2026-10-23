@@ -70,7 +70,7 @@ exports.sendTaskReminders = onSchedule(
 
         // موعد المهمة (خلال نافذة 3 دقائق بعد الوقت)
         const keyA = `${today}_${t.id}${t.reminderVersion ? '_' + t.reminderVersion : ''}_alarm`;
-        if (!pushed[keyA] && nowMin >= taskMin && (nowMin - taskMin) <= 3) {
+        if (!pushed[keyA] && alarmWasScheduledAhead(t, now, taskMin) && nowMin >= taskMin && (nowMin - taskMin) <= 3) {
           pushed[keyA] = true; changed = true;
           messages.push({
             title: isAr ? '⏰ حان وقت المهمة' : '⏰ Task time',
@@ -116,3 +116,10 @@ exports.sendTaskReminders = onSchedule(
     return null;
   }
 );
+
+// Do not send a due-time alarm for a start that predates creation/rescheduling.
+function alarmWasScheduledAhead(task, clock, minute) {
+  const scheduledAt = clock.set({ hour: Math.floor(minute / 60), minute: minute % 60, second: 0, millisecond: 0 }).toMillis();
+  const scheduledSince = Math.max(Date.parse(task.createdAt) || 0, Number(task.reminderVersion) || 0);
+  return scheduledAt > scheduledSince;
+}

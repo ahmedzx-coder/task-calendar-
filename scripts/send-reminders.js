@@ -82,7 +82,7 @@ async function main() {
 
       // موعد المهمة (مع نافذة التقاط تعوّض تأخير الجدولة)
       const keyA = `${today}_${t.id}${t.reminderVersion ? '_' + t.reminderVersion : ''}_alarm`;
-      if (!pushed[keyA] && nowMin >= taskMin && (nowMin - taskMin) <= CATCHUP_MIN) {
+      if (!pushed[keyA] && alarmWasScheduledAhead(t, now, taskMin) && nowMin >= taskMin && (nowMin - taskMin) <= CATCHUP_MIN) {
         pushed[keyA] = true; changed = true;
         messages.push({ title: isAr ? '⏰ حان وقت المهمة' : '⏰ Task time',
                         body: t.title || (isAr ? 'حان وقت مهمتك' : "It's time for your task") });
@@ -123,3 +123,10 @@ async function main() {
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error('✖ خطأ:', e); process.exit(1); });
+
+// Do not send a due-time alarm for a start that predates creation/rescheduling.
+function alarmWasScheduledAhead(task, clock, minute) {
+  const scheduledAt = clock.set({ hour: Math.floor(minute / 60), minute: minute % 60, second: 0, millisecond: 0 }).toMillis();
+  const scheduledSince = Math.max(Date.parse(task.createdAt) || 0, Number(task.reminderVersion) || 0);
+  return scheduledAt > scheduledSince;
+}
