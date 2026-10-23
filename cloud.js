@@ -187,6 +187,10 @@
   var currentUser = null;
   var unsubscribeDoc = null;
   var saveTimer = null;
+  // Keep unacknowledged local edits on screen while Firestore catches up.
+  // Profile/Telegram updates can otherwise deliver an older task snapshot.
+  var localChangeRevision = 0;
+  var savedChangeRevision = 0;
   var applyingRemote = false;   // يمنع حلقة الدفع عند تطبيق بيانات السحابة
   var OWNER_KEY = 'task-planner-owner-uid'; // صاحب البيانات المحلية الحالية (لمنع تسرّب المهام بين الحسابات)
 
@@ -271,13 +275,24 @@
     if (!canMergeLocal) clearLocalTasks();
 
     var syncingUid = currentUser.uid;
+    var syncStartRevision = localChangeRevision;
     userDoc().get().then(function (snap) {
       if (!currentUser || currentUser.uid !== syncingUid) return;
       var local = canMergeLocal ? getLocalData() : { tasks: [], completedTasks: [] };
       var data = (snap.exists && snap.data()) || {};
       var mergedTasks = mergeById(local.tasks, data.tasks || []);
       var mergedCompleted = mergeById(local.completedTasks, data.completedTasks || []);
-      applyToApp(mergedTasks, mergedCompleted, mergeById(local.projects || [], data.projects || []));
+      // If someone edited locally while the initial fetch was in flight,
+      // preserve the new in-memory state and let its scheduled save finish.
+      if (localChangeRevision !== syncStartRevision) {
+        mergedTasks = mergeById(mergedTasks, getLocalData().tasks || []);
+        mergedCompleted = mergeById(mergedCompleted, getLocalData().completedTasks || []);
+      }
+      var mergedProjects = mergeById(local.projects || [], data.projects || []);
+      if (localChangeRevision !== syncStartRevision) {
+        mergedProjects = mergeById(mergedProjects, getLocalData().projects || []);
+      }
+      applyToApp(mergedTasks, mergedCompleted, mergedProjects);
       pushToCloud(mergedTasks, mergedCompleted, true);
       window.NatijaStorage.setItem(OWNER_KEY, currentUser.uid);
       listenRealtime();
@@ -300,6 +315,9 @@
     unsubscribeDoc = userDoc().onSnapshot({ includeMetadataChanges: false }, function (snap) {
       if (!snap.exists) return;
       if (snap.metadata && snap.metadata.hasPendingWrites) return; // تجاهل صدى كتابتنا المحلية
+      // Do not replace optimistic UI data with a stale remote snapshot while
+      // a user edit is still debounced, queued or being acknowledged.
+      if (localChangeRevision !== savedChangeRevision) return;
       var data = snap.data() || {};
       applyToApp(data.tasks || [], data.completedTasks || [], data.projects || []);
     }, function (err) { console.error('[cloud] snapshot error', err); });
@@ -307,30 +325,42 @@
 
   function pushToCloud(tasks, completedTasks, immediate) {
     if (!currentUser) return;
-    var payload = {
-      tasks: tasks || [],
-      completedTasks: completedTasks || [],
-      projects: getLocalData().projects || [],
-      schemaVersion: 2,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
     var target = userDoc(), ownerUid = currentUser.uid;
     var write = function () {
       if (!currentUser || currentUser.uid !== ownerUid) return;
-      target.set(payload, { merge: true }).catch(function (e) {
+      // Snapshot at the actual write time: multiple fast edits must not send
+      // an older payload captured before the debounce finishes.
+      var latest = getLocalData();
+      var revision = localChangeRevision;
+      var payload = {
+        tasks: latest.tasks || [],
+        completedTasks: latest.completedTasks || [],
+        projects: latest.projects || [],
+        schemaVersion: 2,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      return target.set(payload, { merge: true }).then(function () {
+        // A newer edit may already exist; only clear dirty status after
+        // the latest local version has been accepted by the server.
+        if (currentUser && currentUser.uid === ownerUid && localChangeRevision === revision) {
+          savedChangeRevision = revision;
+        }
+      }).catch(function (e) {
         console.error('[cloud] write error', e);
+        showBanner(syncErrText(e), 'warn');
       });
     };
     if (immediate) { write(); return; }
     if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(write, 800); // debounce
+    saveTimer = setTimeout(function () { saveTimer = null; write(); }, 800);
   }
 
-  // يُستدعى من التطبيق بعد كل حفظ محلي ناتج عن المستخدم
+  // Called after an in-app save. The UI has already been redrawn; don't
+  // let a delayed Firestore snapshot undo the user's fresh changes.
   function onLocalSave() {
     if (applyingRemote || !currentUser) return;
-    var d = getLocalData();
-    pushToCloud(d.tasks, d.completedTasks, false);
+    localChangeRevision += 1;
+    pushToCloud(null, null, false);
   }
 
   // ================= Push (FCM) =================
