@@ -3,6 +3,7 @@
   const M=window.NatijaModel, storage=window.NatijaStorage;
   let projects=JSON.parse(storage.getItem('natija-projects-v2') || '[]');
   let dragged=null;
+  let boardQuery='';
   let filter='', view='planner', projectEditor=null;
   const tr=(ar,en)=>currentLang==='ar'?ar:en;
   const host=document.createElement('section'); host.className='n2'; host.id='natijaWorkspace';
@@ -66,8 +67,8 @@
   function card(t) {
     const p=projects.find(p=>p.id===t.projectId);
     return `<article class="n2-card" draggable="true" data-drag="${esc(t.id)}"><button data-edit="${esc(t.id)}">${esc(t.title)}</button>${p&&view!=='projects'?`<span class="n2-project-tag">${esc(p.title)}</span>`:''}<small>${esc(t.date)} ${esc(t.time||'')}${t.endTime?' – '+esc(t.endTime):''}</small>
-      <label>${tr('الحالة','Status')}<select data-status="${esc(t.id)}">${['todo','doing','done'].map((s,i)=>`<option value="${s}" ${M.normalize(t).status===s?'selected':''}>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]}</option>`).join('')}</select></label>
-      ${(t.subtasks||[]).map(s=>`<label><input type="checkbox" data-task="${esc(t.id)}" data-sub="${esc(s.id)}" ${s.completed?'checked':''}>${esc(s.title)}</label>`).join('')}</article>`;
+      <details><summary>${tr('التفاصيل والحالة','Details and status')}${t.subtasks?.length?` · ${t.subtasks.filter(s=>s.completed).length}/${t.subtasks.length}`:''}</summary><label>${tr('الحالة','Status')}<select data-status="${esc(t.id)}">${['todo','doing','done'].map((s,i)=>`<option value="${s}" ${M.normalize(t).status===s?'selected':''}>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]}</option>`).join('')}</select></label>
+      ${(t.subtasks||[]).map(s=>`<label><input type="checkbox" data-task="${esc(t.id)}" data-sub="${esc(s.id)}" ${s.completed?'checked':''}>${esc(s.title)}</label>`).join('')}</details></article>`;
   }
   function projectPage(){
     const p=projects.find(p=>p.id===filter);
@@ -76,7 +77,10 @@
     return `<button class="n2-back" data-projects-back>${tr('← كل المشروعات','← All projects')}</button><section class="n2-project-detail"><h3>${esc(p.title)}</h3><p class="n2-description">${esc(p.description||tr('أضف وصفًا من تعديل المشروع.','Add a description using Edit project.'))}</p><p>${tr('موعد التسليم','Due date')}: ${esc(p.dueDate||'—')} ${overdue?tr('· متأخر','· Overdue'):''}</p><label>${tr('الإنجاز','Progress')}: ${progress.done}/${progress.total} (${progress.percent}%)<progress max="100" value="${progress.percent}"></progress></label></section>${board(tasks.filter(t=>t.projectId===p.id))}`;
   }
   function draw(){
+    const opened=new Set([...host.querySelectorAll('.n2-card:has(details[open])')].map(el=>el.dataset.drag));
+    const columnScroll=new Map([...host.querySelectorAll('[data-drop-status]')].map(el=>[el.dataset.dropStatus,el.querySelector('.n2-column-tasks')?.scrollTop||0]));
     host.parentElement.classList.toggle('n2-project-mode',view==='projects');
+    host.parentElement.classList.toggle('n2-board-mode',view==='board');
     const scrollTop=host.querySelector('.n2-hours')?.scrollTop||0;
     if(filter&&!projects.some(p=>p.id===filter))filter='';
     const list=tasks.filter(t=>view==='planner'||!filter||t.projectId===filter), date=formatDate(selectedDate);
@@ -87,6 +91,8 @@
       ${projectEditor!==null?`<form id="n2ProjectForm" class="n2-toolbar"><label>${tr('اسم المشروع','Project name')}<input id="n2ProjectName" required maxlength="120" value="${esc(projectEditor.title||'')}"></label><label>${tr('وصف المشروع','Description')}<textarea id="n2ProjectDescription" maxlength="2000">${esc(projectEditor.description||'')}</textarea></label><label>${tr('موعد التسليم','Due date')}<input type="date" id="n2ProjectDue" value="${esc(projectEditor.dueDate||'')}"></label><button type="submit">${tr('حفظ المشروع','Save project')}</button><button type="button" data-cancel-project>${tr('إلغاء','Cancel')}</button></form>`:''}
       ${view==='planner'?planner(list,date):view==='projects'?projectPage():board(list)}`;
     const hours=host.querySelector('.n2-hours');if(hours)hours.scrollTop=scrollTop;
+    host.querySelectorAll('.n2-card').forEach(el=>{if(opened.has(el.dataset.drag))el.querySelector('details').open=true;});
+    host.querySelectorAll('[data-drop-status]').forEach(el=>{el.querySelector('.n2-column-tasks').scrollTop=columnScroll.get(el.dataset.dropStatus)||0;});
   }
   function planner(list,date){
     const day=list.filter(t=>t.date===date);
@@ -94,11 +100,16 @@
       <p class="n2-hint">${tr('اسحب المهمة لساعة كاملة أو اسحب ↕ لتغيير النهاية. من ٤ لـ٥ مباشرة، بدون أرباع ساعة. اضغط للتعديل. اضغط على الساعة لإضافة مهمة. المهام القديمة دون نهاية تظهر لمدة ٣٠ دقيقة تقديرية.','Drag a task or its ↕ end handle to a whole hour. From 4 to 5 directly, with no quarter-hour steps. Click to edit. Select an hour to add a task. Legacy tasks without an end appear with an estimated 30-minute duration.')}</p>
       <div>${day.filter(t=>!M.interval(t)).map(card).join('')}</div><div class="n2-hours">${Array.from({length:24},(_,h)=>`<div class="n2-hour" data-drop-hour="${h}"><button data-hour="${h}" aria-label="${tr('أضف مهمة عند','Add task at')} ${h}:00">${String(h).padStart(2,'0')}:00</button><div>${day.filter(t=>M.interval(t)&&Math.floor(M.interval(t).start/60)===h).sort((a,b)=>a.time.localeCompare(b.time)).map(t=>`<div class="n2-event-wrap"><button draggable="true" data-drag="${esc(t.id)}" class="n2-event ${t.completed?'n2-muted':''}" data-edit="${esc(t.id)}">${esc(t.time)}–${esc(t.endTime||'≈30m')} · ${esc(t.title)} ${day.some(o=>o.id!==t.id&&!o.completed&&!t.completed&&M.overlap(t,o))?tr('⚠ تعارض','⚠ Overlap'):''}<small> · ${M.interval(t).end-M.interval(t).start} ${tr('دقيقة','min')}</small></button><button class="n2-resize" draggable="true" data-resize="${esc(t.id)}" data-edit="${esc(t.id)}" aria-label="${tr('تغيير نهاية المهمة','Change task end')}" title="${tr('اسحب إلى وقت النهاية أو اضغط للتعديل','Drag to end time or click to edit')}">↕</button></div>`).join('')}</div></div>`).join('')}</div>`;
   }
-  function board(list){return `<p>${tr('اسحب المهمة بين الأعمدة، أو استخدم قائمة الحالة. كل التواريخ.','Drag a task between columns, or use its status menu. All dates.')}</p><div class="n2-board">${['todo','doing','done'].map((s,i)=>{const items=list.filter(t=>M.normalize(t).status===s);return `<section class="n2-column" data-drop-status="${s}"><h3>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]} (${items.length})</h3>${items.map(card).join('')||`<p class="n2-empty">${tr('لا توجد مهام','No tasks')}</p>`}</section>`;}).join('')}</div>`;}
+  function board(list){
+    const query=boardQuery.trim().toLocaleLowerCase();
+    const matches=list.filter(t=>!query||[t.title,...(t.subtasks||[]).map(s=>s.title)].join(' ').toLocaleLowerCase().includes(query));
+    return `<form id="n2SearchForm" class="n2-toolbar n2-search"><label for="n2Search">${tr('ابحث عن مهمة','Find a task')}<input id="n2Search" type="search" value="${esc(boardQuery)}" placeholder="${tr('اسم المهمة أو مهمة فرعية','Task or subtask name')}"></label><button type="submit">${tr('بحث','Search')}</button>${query?`<button type="button" data-clear-search>${tr('مسح البحث','Clear search')}</button>`:''}<span role="status">${matches.length} / ${list.length} ${tr('مهمة','tasks')}</span></form><p class="n2-hint">${tr('كل التواريخ. اسحب بين الأعمدة أو افتح التفاصيل لتغيير الحالة.','All dates. Drag between columns or open details to change status.')}</p><div class="n2-board">${['todo','doing','done'].map((s,i)=>{const items=matches.filter(t=>M.normalize(t).status===s).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.time||'').localeCompare(b.time||''));return `<section class="n2-column" data-drop-status="${s}"><h3>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]} <span>${items.length}</span></h3><div class="n2-column-tasks" tabindex="0" aria-label="${[tr('مهام للعمل','To do tasks'),tr('مهام قيد التنفيذ','In progress tasks'),tr('مهام مكتملة','Completed tasks')][i]}">${items.map(card).join('')||`<p class="n2-empty">${tr(query?'لا توجد نتائج':'لا توجد مهام',query?'No matching tasks':'No tasks')}</p>`}</div></section>`;}).join('')}</div>`;
+  }
   host.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;
+    if(b.hasAttribute('data-clear-search')){boardQuery='';draw();document.getElementById('n2Search').focus();}
     if(b.dataset.project){filter=b.dataset.project;view='projects';draw();}
-    if(b.dataset.view){view=b.dataset.view;filter='';projectEditor=null;draw();}
+    if(b.dataset.view){view=b.dataset.view;filter='';boardQuery='';projectEditor=null;draw();}
     if(b.hasAttribute('data-projects-back')){filter='';projectEditor=null;draw();}
     if(b.hasAttribute('data-edit'))openEditTask(b.dataset.edit);
     if(b.hasAttribute('data-new-project')||b.hasAttribute('data-rename')){
@@ -108,13 +119,14 @@
     if(b.hasAttribute('data-cancel-project')){projectEditor=null;draw();}
     if(b.dataset.day){const d=new Date(selectedDate);d.setDate(d.getDate()+Number(b.dataset.day));selectDate(d);}
     if(b.hasAttribute('data-hour')||b.hasAttribute('data-new-task')){
-      if(view==='projects'){view='planner';draw();}
+      if(view!=='planner'){view='planner';draw();}
       document.getElementById('taskDate').value=formatDate(selectedDate);
       if(b.hasAttribute('data-hour'))document.getElementById('taskTime').value=String(b.dataset.hour).padStart(2,'0')+':00';
       document.getElementById('taskProject').value=filter;document.getElementById('taskTitle').focus();
     }
   });
   host.addEventListener('submit',e=>{
+    if(e.target.id==='n2SearchForm'){e.preventDefault();boardQuery=document.getElementById('n2Search').value;draw();document.getElementById('n2Search').focus();return;}
     if(e.target.id!=='n2ProjectForm')return;e.preventDefault();
     const title=document.getElementById('n2ProjectName').value.trim();if(!title)return;
     const description=document.getElementById('n2ProjectDescription').value.trim(),dueDate=document.getElementById('n2ProjectDue').value;
