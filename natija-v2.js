@@ -2,6 +2,7 @@
   'use strict';
   const M=window.NatijaModel, storage=window.NatijaStorage;
   let projects=JSON.parse(storage.getItem('natija-projects-v2') || '[]');
+  let dragged=null;
   let filter='', view='planner', projectEditor=null;
   const tr=(ar,en)=>currentLang==='ar'?ar:en;
   const host=document.createElement('section'); host.className='n2'; host.id='natijaWorkspace';
@@ -64,30 +65,39 @@
   }
   function card(t) {
     const p=projects.find(p=>p.id===t.projectId);
-    return `<article class="n2-card"><button data-edit="${esc(t.id)}">${esc(t.title)}</button><small>${esc(p?p.title:tr('بدون مشروع','No project'))} · ${esc(t.date)} ${esc(t.time||'')}${t.endTime?' – '+esc(t.endTime):''}</small>
+    return `<article class="n2-card" draggable="true" data-drag="${esc(t.id)}"><button data-edit="${esc(t.id)}">${esc(t.title)}</button><small>${esc(p?p.title:tr('بدون مشروع','No project'))} · ${esc(t.date)} ${esc(t.time||'')}${t.endTime?' – '+esc(t.endTime):''}</small>
       <label>${tr('الحالة','Status')}<select data-status="${esc(t.id)}">${['todo','doing','done'].map((s,i)=>`<option value="${s}" ${M.normalize(t).status===s?'selected':''}>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]}</option>`).join('')}</select></label>
       ${(t.subtasks||[]).map(s=>`<label><input type="checkbox" data-task="${esc(t.id)}" data-sub="${esc(s.id)}" ${s.completed?'checked':''}>${esc(s.title)}</label>`).join('')}</article>`;
   }
+  function projectPage(){
+    const p=projects.find(p=>p.id===filter);
+    if(!p)return `<div class="n2-project-list">${projects.map(p=>{const progress=M.progress(tasks,p.id);return `<button class="n2-project-summary" data-project="${esc(p.id)}"><strong>${esc(p.title)}</strong><span>${progress.done}/${progress.total} · ${progress.percent}%</span><progress value="${progress.percent}" max="100" aria-label="${esc(p.title)}"></progress></button>`;}).join('')||`<p>${tr('ابدأ بإنشاء مشروع جديد، ثم اربط المهام به.','Create a project, then assign tasks to it.')}</p>`}</div>`;
+    const progress=M.progress(tasks,p.id), overdue=p.dueDate&&p.dueDate<formatDate(new Date())&&progress.done<progress.total;
+    return `<section class="n2-project-detail"><h3>${esc(p.title)}</h3><p class="n2-description">${esc(p.description||tr('أضف وصفًا من تعديل المشروع.','Add a description using Edit project.'))}</p><p>${tr('موعد التسليم','Due date')}: ${esc(p.dueDate||'—')} ${overdue?tr('· متأخر','· Overdue'):''}</p><label>${tr('الإنجاز','Progress')}: ${progress.done}/${progress.total} (${progress.percent}%)<progress max="100" value="${progress.percent}"></progress></label></section>${board(tasks.filter(t=>t.projectId===p.id))}`;
+  }
   function draw(){
+    const scrollTop=host.querySelector('.n2-hours')?.scrollTop||0;
     if(filter&&!projects.some(p=>p.id===filter))filter='';
     const list=tasks.filter(t=>!filter||t.projectId===filter), date=formatDate(selectedDate);
     host.innerHTML=`<h2>Natija 2.0</h2><p>${tr('خطّط يومك، وحرّك مشروعاتك للأمام','Plan your day. Move your projects forward.')}</p>
       ${window.NatijaPreview?`<p class="n2-preview">${tr('معاينة محلية منفصلة — لا مزامنة ولا تنبيهات خلفية','Isolated local preview — no sync or background notifications')}</p>`:''}
       <div class="n2-toolbar"><button data-view="planner" aria-pressed="${view==='planner'}">${tr('مخطط اليوم','Day planner')}</button><button data-view="board" aria-pressed="${view==='board'}">${tr('لوحة المشروعات','Project board')}</button>
-      <label>${tr('المشروع','Project')}<select id="n2Filter">${options(filter,true)}</select></label><button data-new-project>${tr('+ مشروع جديد','+ New project')}</button>${filter?`<button data-rename>${tr('تسمية المشروع','Rename project')}</button>`:''}
+      <button data-view="projects" aria-pressed="${view==='projects'}">${tr('تفاصيل المشروعات','Project details')}</button><label>${tr('المشروع','Project')}<select id="n2Filter">${options(filter,true)}</select></label><button data-new-project>${tr('+ مشروع جديد','+ New project')}</button>${filter?`<button data-rename>${tr('تعديل المشروع','Edit project')}</button>`:''}
       <button data-new-task>${tr('+ مهمة','+ Task')}</button></div>
-      ${projectEditor!==null?`<form id="n2ProjectForm" class="n2-toolbar"><label>${tr('اسم المشروع','Project name')}<input id="n2ProjectName" required maxlength="120" value="${esc(projectEditor.title||'')}"></label><button type="submit">${tr('حفظ المشروع','Save project')}</button><button type="button" data-cancel-project>${tr('إلغاء','Cancel')}</button></form>`:''}
-      ${view==='planner'?planner(list,date):board(list)}`;
+      ${projectEditor!==null?`<form id="n2ProjectForm" class="n2-toolbar"><label>${tr('اسم المشروع','Project name')}<input id="n2ProjectName" required maxlength="120" value="${esc(projectEditor.title||'')}"></label><label>${tr('وصف المشروع','Description')}<textarea id="n2ProjectDescription" maxlength="2000">${esc(projectEditor.description||'')}</textarea></label><label>${tr('موعد التسليم','Due date')}<input type="date" id="n2ProjectDue" value="${esc(projectEditor.dueDate||'')}"></label><button type="submit">${tr('حفظ المشروع','Save project')}</button><button type="button" data-cancel-project>${tr('إلغاء','Cancel')}</button></form>`:''}
+      ${view==='planner'?planner(list,date):view==='projects'?projectPage():board(list)}`;
+    const hours=host.querySelector('.n2-hours');if(hours)hours.scrollTop=scrollTop;
   }
   function planner(list,date){
     const day=list.filter(t=>t.date===date);
     return `<div class="n2-toolbar"><button data-day="-1" aria-label="${tr('اليوم السابق','Previous day')}">−</button><label>${tr('اليوم','Day')}<input type="date" id="n2Date" value="${date}"></label><button data-day="1" aria-label="${tr('اليوم التالي','Next day')}">+</button></div>
-      <p>${tr('اضغط على الساعة لإضافة مهمة. المهام القديمة دون نهاية تظهر لمدة ٣٠ دقيقة تقديرية.','Select an hour to add a task. Legacy tasks without an end appear with an estimated 30-minute duration.')}</p>
-      <div>${day.filter(t=>!M.interval(t)).map(card).join('')}</div><div class="n2-hours">${Array.from({length:24},(_,h)=>`<div class="n2-hour"><button data-hour="${h}" aria-label="${tr('أضف مهمة عند','Add task at')} ${h}:00">${String(h).padStart(2,'0')}:00</button><div>${day.filter(t=>M.interval(t)&&Math.floor(M.interval(t).start/60)===h).sort((a,b)=>a.time.localeCompare(b.time)).map(t=>`<button class="n2-event ${t.completed?'n2-muted':''}" data-edit="${esc(t.id)}">${esc(t.time)}–${esc(t.endTime||'≈30m')} · ${esc(t.title)} ${day.some(o=>o.id!==t.id&&!o.completed&&!t.completed&&M.overlap(t,o))?tr('⚠ تعارض','⚠ Overlap'):''}<small> · ${M.interval(t).end-M.interval(t).start} ${tr('دقيقة','min')}</small></button>`).join('')}</div></div>`).join('')}</div>`;
+      <p class="n2-hint">${tr('اسحب المهمة لساعة جديدة أو اسحب ↕ لتغيير النهاية، بدقة ١٥ دقيقة. اضغط للتعديل. اضغط على الساعة لإضافة مهمة. المهام القديمة دون نهاية تظهر لمدة ٣٠ دقيقة تقديرية.','Drag a task to reschedule or drag ↕ to resize in 15-minute steps. Click to edit. Select an hour to add a task. Legacy tasks without an end appear with an estimated 30-minute duration.')}</p>
+      <div>${day.filter(t=>!M.interval(t)).map(card).join('')}</div><div class="n2-hours">${Array.from({length:24},(_,h)=>`<div class="n2-hour" data-drop-hour="${h}"><button data-hour="${h}" aria-label="${tr('أضف مهمة عند','Add task at')} ${h}:00">${String(h).padStart(2,'0')}:00</button><div>${day.filter(t=>M.interval(t)&&Math.floor(M.interval(t).start/60)===h).sort((a,b)=>a.time.localeCompare(b.time)).map(t=>`<div class="n2-event-wrap"><button draggable="true" data-drag="${esc(t.id)}" class="n2-event ${t.completed?'n2-muted':''}" data-edit="${esc(t.id)}">${esc(t.time)}–${esc(t.endTime||'≈30m')} · ${esc(t.title)} ${day.some(o=>o.id!==t.id&&!o.completed&&!t.completed&&M.overlap(t,o))?tr('⚠ تعارض','⚠ Overlap'):''}<small> · ${M.interval(t).end-M.interval(t).start} ${tr('دقيقة','min')}</small></button><button class="n2-resize" draggable="true" data-resize="${esc(t.id)}" data-edit="${esc(t.id)}" aria-label="${tr('تغيير نهاية المهمة','Change task end')}" title="${tr('اسحب إلى وقت النهاية أو اضغط للتعديل','Drag to end time or click to edit')}">↕</button></div>`).join('')}</div></div>`).join('')}</div>`;
   }
-  function board(list){return `<p>${tr('كل التواريخ · تغيير الحالة من القائمة يحفظها في كل العروض','All dates · Changing status updates every view')}</p><div class="n2-board">${['todo','doing','done'].map((s,i)=>{const items=list.filter(t=>M.normalize(t).status===s);return `<section class="n2-column"><h3>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]} (${items.length})</h3>${items.map(card).join('')||`<p class="n2-empty">${tr('لا توجد مهام','No tasks')}</p>`}</section>`;}).join('')}</div>`;}
+  function board(list){return `<p>${tr('اسحب المهمة بين الأعمدة، أو استخدم قائمة الحالة. كل التواريخ.','Drag a task between columns, or use its status menu. All dates.')}</p><div class="n2-board">${['todo','doing','done'].map((s,i)=>{const items=list.filter(t=>M.normalize(t).status===s);return `<section class="n2-column" data-drop-status="${s}"><h3>${[tr('للعمل','To do'),tr('جارٍ التنفيذ','In progress'),tr('مكتمل','Done')][i]} (${items.length})</h3>${items.map(card).join('')||`<p class="n2-empty">${tr('لا توجد مهام','No tasks')}</p>`}</section>`;}).join('')}</div>`;}
   host.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.project){filter=b.dataset.project;view='projects';draw();}
     if(b.dataset.view){view=b.dataset.view;draw();}
     if(b.hasAttribute('data-edit'))openEditTask(b.dataset.edit);
     if(b.hasAttribute('data-new-project')||b.hasAttribute('data-rename')){
@@ -105,8 +115,9 @@
   host.addEventListener('submit',e=>{
     if(e.target.id!=='n2ProjectForm')return;e.preventDefault();
     const title=document.getElementById('n2ProjectName').value.trim();if(!title)return;
+    const description=document.getElementById('n2ProjectDescription').value.trim(),dueDate=document.getElementById('n2ProjectDue').value;
     const p=projects.find(p=>p.id===projectEditor.id);
-    if(p){p.title=title;p.updatedAt=Date.now();}else{const p={id:crypto.randomUUID(),title,updatedAt:Date.now()};projects.push(p);filter=p.id;}
+    if(p){p.title=title;p.description=description;p.dueDate=dueDate;p.updatedAt=Date.now();}else{const p={id:crypto.randomUUID(),title,description,dueDate,updatedAt:Date.now()};projects.push(p);filter=p.id;}
     projectEditor=null;saveTasks();refreshProjects();
   });
   host.addEventListener('change',e=>{
@@ -116,6 +127,35 @@
     if(el.dataset.status){const t=tasks.find(t=>String(t.id)===el.dataset.status);if(t)status(t,el.value);}
     if(el.dataset.sub){const t=tasks.find(t=>String(t.id)===el.dataset.task);const s=t&&t.subtasks.find(s=>s.id===el.dataset.sub);if(s){s.completed=el.checked;t.updatedAt=Date.now();saveTasks();}}
   });
-  window.addEventListener('natija-language-changed',()=>{draw();fields('task');if(editingTaskId!==null){const t=tasks.find(t=>t.id===editingTaskId);if(t)fields('editTask',t);}});
+  function clearDrag(){dragged=null;host.querySelectorAll('.n2-drop-active').forEach(el=>el.classList.remove('n2-drop-active'));}
+  host.addEventListener('dragstart',e=>{
+    const el=e.target.closest('[data-drag],[data-resize]');if(!el)return;
+    dragged={id:el.dataset.drag||el.dataset.resize,resize:el.hasAttribute('data-resize')};
+    e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragged.id);
+  });
+  host.addEventListener('dragover',e=>{
+    const target=e.target.closest('[data-drop-status],[data-drop-hour]');
+    if(!dragged||!target||(dragged.resize&&target.hasAttribute('data-drop-status')))return;
+    e.preventDefault();e.dataTransfer.dropEffect='move';
+    host.querySelectorAll('.n2-drop-active').forEach(el=>el.classList.remove('n2-drop-active'));
+    target.classList.add('n2-drop-active');
+  });
+  host.addEventListener('dragend',clearDrag);
+  host.addEventListener('drop',e=>{
+    const target=e.target.closest('[data-drop-status],[data-drop-hour]');if(!dragged||!target)return;
+    e.preventDefault();const action=dragged;clearDrag();
+    const task=tasks.find(t=>String(t.id)===action.id);if(!task)return;
+    if(target.dataset.dropStatus){if(!action.resize)status(task,target.dataset.dropStatus);return;}
+    const rect=target.getBoundingClientRect();
+    const minute=Number(target.dataset.dropHour)*60+Math.min(3,Math.max(0,Math.floor((e.clientY-rect.top)/rect.height*4)))*15;
+    try{
+      const next=action.resize?M.resize(task,minute):M.reschedule(task,formatDate(selectedDate),minute);
+      Object.assign(task,next);saveTasks();showToast(tr('تم تحديث الموعد','Schedule updated'),'success');
+    }catch(error){showToast(tr('اختار نهاية بعد البداية، داخل نفس اليوم','Choose an end after the start, within the same day'),'error');}
+  });
+  window.addEventListener('natija-language-changed',()=>{
+    const drafts=['task','editTask'].map(prefix=>{const el=document.getElementById(prefix+'EndTime');return el?{prefix,endTime:el.value,projectId:document.getElementById(prefix+'Project').value,subtasks:document.getElementById(prefix+'Subtasks').value.split('\n').map(title=>({title}))}:null;});
+    draw();drafts.filter(Boolean).forEach(d=>fields(d.prefix,d));
+  });
   fields('task');draw();
 })();

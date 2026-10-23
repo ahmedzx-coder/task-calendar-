@@ -25,4 +25,14 @@ Run `node --test tests/*.test.cjs`. Tests cover legacy migration, time ranges/ov
 
 The branch-only workflow uploads `natija-2-web-preview` under GitHub Actions; download, extract, serve, then open `preview.html`. This workflow has read-only repository permissions and no Pages deployment step. It is an artifact preview, not a hosted public URL.
 
-This release implements Calendar/Notion-style workflows inside Natija. It does not connect to Google Calendar or Notion APIs. Drag-and-drop scheduling, cross-midnight events and independent subtask reminders are not included.
+This release implements Calendar/Notion-style workflows inside Natija. It does not connect to Google Calendar or Notion APIs. Cross-midnight events and independent subtask reminders are not included.
+
+## Project details and drag interactions
+
+Projects now include optional description and dueDate fields. The Project details view computes completion from linked tasks and flags overdue incomplete projects. Existing projects need no migration.
+
+Drag a board card to a status column. In the daily planner, drag an event into an hour row: the vertical quarter of the row chooses a 15-minute start. Drag the arrow handle into an hour row to choose the end. Rescheduling preserves duration and updates reminderVersion; resizing preserves reminder identity. Invalid or cross-midnight ranges are rejected. Native drag is intended for desktop; status menus and the edit dialog remain the keyboard/touch alternatives.
+
+Sixteen automated tests pass, including the actual scheduled Firebase function running against in-memory Firestore, messaging and clock doubles. They verify due reminders, duplicate suppression, rescheduling and completed-task exclusion without external calls. Browser checks verify Kanban drag, project progress and planner drag. Live delivery remains untested by user choice; no test account or real notification was used.
+
+A separate private Sites project was prepared, but publication is blocked by the execution environment's outbound Git restriction. No hosted URL is claimed and no Pages deployment was changed. Local preview and Actions artifacts remain available.
