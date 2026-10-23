@@ -210,9 +210,12 @@
       var b = bridge();
       if (b && b.applyRemote) b.applyRemote(tasks, completedTasks, projects);
       else {
+        // Never reload the page in a loop when the UI failed to initialise.
+        // Retain the data locally and offer a recoverable error instead.
         window.NatijaStorage.setItem('tasks', JSON.stringify(tasks || []));
         window.NatijaStorage.setItem('completedTasks', JSON.stringify(completedTasks || []));
-        location.reload();
+        showBanner(T('تعذّر تحديث الواجهة؛ افتح الصفحة من جديد لو استمرت المشكلة.',
+                     'Could not update the interface; reopen the page if the problem continues.'), 'warn');
       }
     } finally {
       // أفلت القفل بعد دورة الحدث لتفادي صدى الحفظ المحلي
