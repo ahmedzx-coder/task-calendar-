@@ -141,13 +141,30 @@
     }
   }
 
+  // Do not expose the task calendar before Firebase resolves the session.
+  // Authentication failures leave the app closed, with a clear retry action.
+  function showAuthBootError() {
+    var msg = $('authBootMessage');
+    if (msg) msg.textContent = T(
+      'تعذّر الاتصال بتسجيل الدخول. اتأكد من الإنترنت واضغط إعادة المحاولة.',
+      'Could not check your login. Check your connection and try again.'
+    );
+    var retry = $('authBootRetryBtn');
+    if (retry) retry.hidden = false;
+  }
+
   // ================= وضع محلي (Firebase غير مُعد أو تعذّر تحميله) =================
   if (!isConfigured() || typeof firebase === 'undefined') {
     document.addEventListener('DOMContentLoaded', function () {
       if (window.NatijaPreview) {
         ['authLogoutBtn', 'authUserChip', 'notifyEnableBtn'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
+        document.documentElement.classList.remove('auth-pending');
         return;
       }
+      // On the published site, offline/Firebase errors must not silently
+      // reveal tasks belonging to the last logged-in account.
+      showAuthBootError();
+      return;
       installNotifyHook();
       ['authLogoutBtn', 'authUserChip'].forEach(function (id) { var el = $(id); if (el) el.classList.add('hidden'); });
       if (!window.NatijaPreview && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
@@ -491,6 +508,8 @@
     if (!el) return;
     document.body.classList.toggle('auth-locked', !!show);
     el.classList.toggle('hidden', !show);
+    // The first paint stays private until we know whether to show login or app.
+    document.documentElement.classList.remove('auth-pending');
     // The login screen has its own scroll area. Never scroll the calendar
     // underneath it; reset the viewport when signing out.
     if (show) window.scrollTo(0, 0);
@@ -609,6 +628,9 @@
         }
         showAuthOverlay(true);
       }
+    }, function (error) {
+      console.warn('[cloud] Firebase auth initialization failed', error && error.code);
+      showAuthBootError();
     });
   });
 })();
