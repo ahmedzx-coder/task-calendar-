@@ -5,6 +5,8 @@
   let dragged=null;
   let boardQuery='';
   let filter='', view='today', projectEditor=null;
+  let compactPeriodOverride=null;
+  let compactPeriodDate=formatDate(new Date());
   let renderedScene=null, visibleDay=formatDate(new Date());
   const motions=new WeakMap();
   function reveal(el,delay=0){
@@ -145,7 +147,8 @@
     simpleLabels();
     const oldHours=host.querySelector('.n2-hours');
     const nextMode=view==='today'?'compact':view==='planner'?'full':'none';
-    const scrollTop=oldHours?.dataset.scheduleMode===nextMode?oldHours.scrollTop:null;
+    const nextPeriod=view==='today'?selectedCompactPeriod(tasks.filter(t=>t.date===formatDate(new Date())),formatDate(new Date())):'all';
+    const scrollTop=oldHours?.dataset.scheduleMode===nextMode&&oldHours.dataset.period===nextPeriod?oldHours.scrollTop:null;
     if(filter&&!projects.some(p=>p.id===filter))filter='';
     const list=tasks.filter(t=>M.visibleTask(t,formatDate(new Date()))&&(view==='planner'||!filter||t.projectId===filter)), date=formatDate(selectedDate);
     host.innerHTML=`<h2>${tr('مساحتك لتنظيم المهام','Your task workspace')}</h2>
@@ -175,9 +178,12 @@
         const next=tasks.filter(t=>t.date===formatDate(now)&&!t.completed&&M.interval(t))
           .sort((a,b)=>a.time.localeCompare(b.time));
         const nextItem=next.find(t=>M.interval(t).start>=now.getHours()*60+now.getMinutes())||next[0];
-        const focusHour=nextItem?Math.floor(M.interval(nextItem).start/60):Math.max(0,now.getHours()-1);
+        const period=hours.dataset.period;
+        const nextInPeriod=next.find(t=>(M.interval(t).start<720)===(period==='am'));
+        const focusHour=nextInPeriod?Math.floor(M.interval(nextInPeriod).start/60):period==='am'?Math.min(now.getHours(),11):Math.max(12,now.getHours());
         const row=hours.querySelector('[data-drop-hour="'+focusHour+'"]');
-        hours.scrollTop=Math.max(0,focusHour*(row?.offsetHeight||52)-52);
+        const localIndex=period==='pm'?focusHour-12:focusHour;
+        hours.scrollTop=Math.max(0,localIndex*(row?.offsetHeight||52)-52);
       }
     }
     host.querySelectorAll('.n2-card').forEach(el=>{if(opened.has(el.dataset.drag))el.querySelector('details').open=true;});
@@ -197,10 +203,32 @@
     return `<section class="n2-my-day"><h3>${tr('مهام اليوم','Today’s tasks')} <small>${esc(today)}</small></h3>${active.length?active.map(card).join(''):`<div class="n2-welcome"><h3>${tr(day.length?'أنجزت مهام اليوم 🎉':'يومك يبدأ بمهمة واحدة',day.length?'Today’s tasks are done 🎉':'Start with one task')}</h3><p>${tr('اضغط «+ مهمة» بالأعلى، اكتب اسمها وحدد موعدها، ثم احفظ. باقي التفاصيل اختيارية.','Select “+ Task” above, enter a name and date, then save. Everything else is optional.')}</p></div>`}${other?`<p><button data-view="board">${tr('مهام أخرى لم تُنجز بعد','Other unfinished tasks')} (${other})</button></p>`:''}${done.length?`<details class="n2-completed"><summary>${tr('تم إنجازها اليوم','Completed today')} (${done.length})</summary>${done.map(card).join('')}</details>`:''}</section>`;
   }
 
-  function scheduleGrid(day,date,compact=false){
+  // Pick the half-day containing actual tasks by default. A manual tap on
+  // AM/PM takes priority until the user returns to My Day or the day changes.
+  function preferredCompactPeriod(day,now=new Date()){
+    const scheduled=day.filter(t=>M.interval(t));
+    const pending=scheduled.filter(t=>!t.completed);
+    const candidates=pending.length?pending:scheduled;
+    const morning=candidates.filter(t=>M.interval(t).start<720);
+    const evening=candidates.filter(t=>M.interval(t).start>=720);
+    if(morning.length && !evening.length)return 'am';
+    if(evening.length && !morning.length)return 'pm';
+    const minute=now.getHours()*60+now.getMinutes();
+    const upcoming=pending.map(t=>M.interval(t).start).filter(start=>start>=minute).sort((a,b)=>a-b);
+    if(upcoming.length)return upcoming[0]<720?'am':'pm';
+    return now.getHours()<12?'am':'pm';
+  }
+  function selectedCompactPeriod(day,date){
+    if(compactPeriodDate!==date){
+      compactPeriodDate=date;
+      compactPeriodOverride=null;
+    }
+    return compactPeriodOverride||preferredCompactPeriod(day);
+  }
+  function scheduleGrid(day,date,compact=false,period='am'){
     const mode=compact?'compact':'full';
-    return `<div class="n2-hours ${compact?'n2-hours-compact':''}" data-schedule-mode="${mode}" data-schedule-date="${esc(date)}" aria-label="${tr('ساعات اليوم','Hours of the day')}" tabindex="0">${
-      Array.from({length:24},(_,hour)=>`
+    return `<div class="n2-hours ${compact?'n2-hours-compact':''}" data-schedule-mode="${mode}" data-schedule-date="${esc(date)}" data-period="${compact?period:'all'}" aria-label="${tr('ساعات اليوم','Hours of the day')}" tabindex="0">${
+      Array.from({length:compact?12:24},(_,i)=>{const hour=compact&&period==='pm'?i+12:i;return `
         <div class="n2-hour" data-drop-hour="${hour}">
           <button type="button" data-hour="${hour}" aria-label="${tr('أضف مهمة عند','Add task at')} ${String(hour).padStart(2,'0')}:00">${String(hour).padStart(2,'0')}:00</button>
           <div>${day.filter(t=>M.interval(t)&&Math.floor(M.interval(t).start/60)===hour)
@@ -210,21 +238,28 @@
               <button type="button" class="n2-resize" draggable="true" data-resize="${esc(t.id)}" data-edit="${esc(t.id)}" aria-label="${tr('تغيير نهاية المهمة','Change task end')}" title="${tr('اسحب لتغيير النهاية أو اضغط للتعديل','Drag to resize or tap to edit')}">↕</button>
             </div>`).join('')}
           </div>
-        </div>`).join('')
+        </div>`;}).join('')
     }</div>`;
   }
   function compactTodaySchedule(){
     const date=formatDate(new Date());
     const day=tasks.filter(t=>t.date===date);
     const unscheduled=day.filter(t=>!M.interval(t));
+    const period=selectedCompactPeriod(day,date);
+    const morningCount=day.filter(t=>M.interval(t)&&M.interval(t).start<720).length;
+    const eveningCount=day.filter(t=>M.interval(t)&&M.interval(t).start>=720).length;
     return `<section class="n2-compact-planner" aria-label="${tr('جدول مواعيد اليوم','Today’s hourly schedule')}">
       <div class="n2-compact-heading">
         <h3>🕒 ${tr('جدول مواعيد اليوم','Today’s schedule')}</h3>
         <span>${esc(date)}</span>
       </div>
+      <div class="n2-period-switch" role="group" aria-label="${tr('اختار الفترة: صباحًا أو مساءً','Choose morning or evening')}">
+        <button type="button" data-compact-period="am" aria-pressed="${period==='am'}" aria-label="${tr('الصباح','Morning')} AM">AM <span class="n2-period-count">${morningCount}</span></button>
+        <button type="button" data-compact-period="pm" aria-pressed="${period==='pm'}" aria-label="${tr('المساء','Evening')} PM">PM <span class="n2-period-count">${eveningCount}</span></button>
+      </div>
       <p class="n2-compact-hint">${tr('اضغط على الساعة لإضافة مهمة، أو على المهمة لتعديلها.','Tap an hour to add a task, or a task to edit it.')}</p>
       ${unscheduled.length?`<div class="n2-unscheduled">${unscheduled.map(card).join('')}</div>`:''}
-      ${scheduleGrid(day,date,true)}
+      ${scheduleGrid(day,date,true,period)}
     </section>`;
   }
   function planner(list,date){
@@ -241,9 +276,16 @@
   }
   host.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;
+    if(b.hasAttribute('data-compact-period')){
+      compactPeriodOverride=b.dataset.compactPeriod;
+      draw();
+      const selected=host.querySelector('[data-compact-period="'+compactPeriodOverride+'"]');
+      if(selected)selected.focus({preventScroll:true});
+      return;
+    }
     if(b.hasAttribute('data-clear-search')){boardQuery='';draw();document.getElementById('n2Search').focus();}
     if(b.dataset.project){filter=b.dataset.project;view='projects';draw();}
-    if(b.dataset.view){view=b.dataset.view;filter='';boardQuery='';projectEditor=null;composer.classList.add('hidden');draw();}
+    if(b.dataset.view){if(b.dataset.view==='today'&&view!=='today')compactPeriodOverride=null;view=b.dataset.view;filter='';boardQuery='';projectEditor=null;composer.classList.add('hidden');draw();}
     if(b.hasAttribute('data-projects-back')){filter='';projectEditor=null;draw();}
     if(b.hasAttribute('data-edit'))openEditTask(b.dataset.edit);
     if(b.hasAttribute('data-new-project')||b.hasAttribute('data-rename')){
@@ -305,6 +347,7 @@
   });
   // The header logo always returns to the My Day home view, without a reload.
   window.addEventListener('natija-go-home',()=>{
+    compactPeriodOverride=null;
     view='today';
     filter='';
     boardQuery='';
