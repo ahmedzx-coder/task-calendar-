@@ -62,7 +62,7 @@ try {
   const compact=host.querySelector('.n2-compact-planner .n2-hours-compact');
   assert.ok(compact,'Compact hourly calendar must appear in My Day');
   assert.equal(compact.querySelectorAll('.n2-hour').length,24,'All hours accessible via scrolling');
-  assert.match(compact.dataset.scheduleDate,/^\\d{4}-\\d{2}-\\d{2}$/,'Date stored on schedule for rescheduling');
+  assert.match(compact.dataset.scheduleDate,/^\d{4}-\d{2}-\d{2}$/,'Date stored on schedule for rescheduling');
   assert.doesNotMatch(compact.textContent,/≈30m|٣٠ دقيقة تقديرية|estimated 30/,'No confusing estimated 30-minute labels');
 
   // Adding a task for tomorrow while My Day is selected should immediately
