@@ -154,8 +154,13 @@
       ${projectEditor!==null?`<form id="n2ProjectForm" class="n2-toolbar"><label>${tr('اسم المشروع','Project name')}<input id="n2ProjectName" required maxlength="120" value="${esc(projectEditor.title||'')}"></label><label>${tr('وصف المشروع','Description')}<textarea id="n2ProjectDescription" maxlength="2000">${esc(projectEditor.description||'')}</textarea></label><label>${tr('موعد التسليم','Due date')}<input type="date" id="n2ProjectDue" value="${esc(projectEditor.dueDate||'')}"></label><button type="submit">${tr('حفظ المشروع','Save project')}</button><button type="button" data-cancel-project>${tr('إلغاء','Cancel')}</button></form>`:''}
       ${view==='today'?todayPage():view==='planner'?planner(list,date):view==='projects'?projectPage():board(list)}`;
     if(todaySidebar && view==='today'){
-      host.append(todaySidebar);
+      // Make the original dashboard sections immediately visible near the top
+      // of My Day, before the optional V2 summary cards. Keep their live IDs.
+      const myDayCards=host.querySelector('.n2-my-day');
+      if(myDayCards)myDayCards.before(todaySidebar);
+      else host.append(todaySidebar);
       todaySidebar.classList.add('n2-home-widgets');
+      todaySidebar.removeAttribute('hidden');
     }else if(todaySidebar){
       todaySidebar.classList.remove('n2-home-widgets');
     }
