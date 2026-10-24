@@ -37,6 +37,27 @@ try {
   const host = w.document.getElementById('natijaWorkspace');
   assert.ok(host,'V2 workspace mounted');
 
+  // Regression for My Day: show the original live dashboard immediately,
+  // not hidden below the V2 cards or outside the selected view.
+  const sectionIds=['statsBoxTitle','todayTasksList','tasksList','timelineList'];
+  function checkMyDaySections() {
+    const dashboard=host.querySelector(':scope > .sidebar.n2-home-widgets');
+    assert.ok(dashboard,'Dashboard sidebar must be inside My Day workspace');
+    for(const id of sectionIds){
+      const element=dashboard.querySelector('#'+id);
+      assert.ok(element,id+' must be visible in the My Day dashboard');
+      assert.equal(w.document.querySelectorAll('#'+id).length,1,id+' should not be duplicated');
+    }
+    const dayCards=host.querySelector('.n2-my-day');
+    assert.ok(dayCards,'My Day cards should still be present');
+    assert.equal(dashboard.nextElementSibling,dayCards,'Stats, tasks, and timeline should be before the daily cards');
+  }
+  checkMyDaySections();
+  // Navigation must reattach the *same* live widgets, not recreate copies.
+  host.querySelector('[data-view="board"]').click();
+  host.querySelector('[data-view="today"]').click();
+  checkMyDaySections();
+
   // Adding a task for tomorrow while My Day is selected should immediately
   // navigate to its scheduled day rather than appearing to fail.
   const tomorrow = new Date();
