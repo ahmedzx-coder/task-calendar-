@@ -1,7 +1,7 @@
 /* sw.js — خدمة عامل بسيطة لتخزين التطبيق للعمل دون اتصال (PWA)
    تُسجَّل في الوضع المحلي. إشعارات الخلفية تُدار في firebase-messaging-sw.js */
-const CACHE = 'task-calendar-natija-v6';
-const ASSETS = ['./', 'index.html', 'manifest.json', 'natija-storage.js', 'natija-model.js?v=20261024-motion-history-1', 'natija-v2.js?v=20261024-my-day-dashboard-2', 'natija-v2.css?v=20261024-my-day-dashboard-2', 'cloud.js?v=20261024-live-save-1', 'onboarding.js?v=1.20261024.2', 'onboarding.css?v=1', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'task-calendar-natija-v7';
+const ASSETS = ['./', 'index.html', 'manifest.json', 'natija-storage.js', 'natija-model.js?v=20261024-motion-history-1', 'natija-v2.js?v=20261024-compact-hours-3', 'natija-v2.css?v=20261024-compact-hours-3', 'cloud.js?v=20261024-live-save-1', 'onboarding.js?v=1.20261024.2', 'onboarding.css?v=1', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})));
