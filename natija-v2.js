@@ -239,6 +239,15 @@
       Object.assign(task,next);saveTasks();showToast(tr('تم تحديث الموعد','Schedule updated'),'success');
     }catch(error){showToast(tr('اختار نهاية بعد البداية، داخل نفس اليوم','Choose an end after the start, within the same day'),'error');}
   });
+  // The header logo always returns to the My Day home view, without a reload.
+  window.addEventListener('natija-go-home',()=>{
+    view='today';
+    filter='';
+    boardQuery='';
+    projectEditor=null;
+    composer.classList.add('hidden');
+    draw();
+  });
   window.addEventListener('natija-language-changed',()=>{
     const drafts=['task','editTask'].map(prefix=>{const el=document.getElementById(prefix+'EndTime');return el?{prefix,endTime:el.value,projectId:document.getElementById(prefix+'Project').value,subtasks:document.getElementById(prefix+'Subtasks').value.split('\n').map(title=>({title}))}:null;});
     draw();drafts.filter(Boolean).forEach(d=>fields(d.prefix,d));
