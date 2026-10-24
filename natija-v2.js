@@ -143,7 +143,9 @@
     host.parentElement.classList.toggle('n2-board-mode',view==='board');
     host.parentElement.classList.toggle('n2-today-mode',view==='today');
     simpleLabels();
-    const scrollTop=host.querySelector('.n2-hours')?.scrollTop||0;
+    const oldHours=host.querySelector('.n2-hours');
+    const nextMode=view==='today'?'compact':view==='planner'?'full':'none';
+    const scrollTop=oldHours?.dataset.scheduleMode===nextMode?oldHours.scrollTop:null;
     if(filter&&!projects.some(p=>p.id===filter))filter='';
     const list=tasks.filter(t=>M.visibleTask(t,formatDate(new Date()))&&(view==='planner'||!filter||t.projectId===filter)), date=formatDate(selectedDate);
     host.innerHTML=`<h2>${tr('مساحتك لتنظيم المهام','Your task workspace')}</h2>
@@ -152,6 +154,7 @@
       <p class="n2-view-guide">${view==='today'?tr('ابدأ هنا: أضف ما تريد إنجازه اليوم. افتح أي مهمة لتعديلها.','Start here: add what you want to do today. Open any task to edit it.'):view==='planner'?tr('اختار يومًا من التقويم، ورتّب مواعيدك بالسحب بين الساعات.','Choose a calendar day and drag tasks between hours to plan your schedule.'):view==='board'?tr('كل مهامك في مكان واحد، مرتبة حسب حالتها. ابحث أو صفّي بالمشروع.','All your tasks, grouped by status. Search or filter by project.'):tr('اجمع المهام المرتبطة بهدف واحد داخل مشروع، وتابع تقدمها.','Group tasks for one goal into a project and follow its progress.')}</p>
       <div class="n2-toolbar n2-actions">${view==='projects'?`<button data-new-project>${tr('+ مشروع جديد','+ New project')}</button>${filter?`<button data-rename>${tr('تعديل المشروع','Edit project')}</button><button data-new-task>${tr('+ مهمة للمشروع','+ Project task')}</button>`:''}`:`${view==='board'?`<label>${tr('تصفية بالمشروع','Filter by project')}<select id="n2Filter">${options(filter,true)}</select></label>`:''}<button data-new-task>${tr('+ مهمة','+ Task')}</button>`}</div>
       ${projectEditor!==null?`<form id="n2ProjectForm" class="n2-toolbar"><label>${tr('اسم المشروع','Project name')}<input id="n2ProjectName" required maxlength="120" value="${esc(projectEditor.title||'')}"></label><label>${tr('وصف المشروع','Description')}<textarea id="n2ProjectDescription" maxlength="2000">${esc(projectEditor.description||'')}</textarea></label><label>${tr('موعد التسليم','Due date')}<input type="date" id="n2ProjectDue" value="${esc(projectEditor.dueDate||'')}"></label><button type="submit">${tr('حفظ المشروع','Save project')}</button><button type="button" data-cancel-project>${tr('إلغاء','Cancel')}</button></form>`:''}
+      ${view==='today'?compactTodaySchedule():''}
       ${view==='today'?todayPage():view==='planner'?planner(list,date):view==='projects'?projectPage():board(list)}`;
     if(todaySidebar && view==='today'){
       // Make the original dashboard sections immediately visible near the top
@@ -164,7 +167,19 @@
     }else if(todaySidebar){
       todaySidebar.classList.remove('n2-home-widgets');
     }
-    const hours=host.querySelector('.n2-hours');if(hours)hours.scrollTop=scrollTop;
+    const hours=host.querySelector('.n2-hours');
+    if(hours){
+      if(scrollTop!==null)hours.scrollTop=scrollTop;
+      else if(view==='today'){
+        const now=new Date();
+        const next=tasks.filter(t=>t.date===formatDate(now)&&!t.completed&&M.interval(t))
+          .sort((a,b)=>a.time.localeCompare(b.time));
+        const nextItem=next.find(t=>M.interval(t).start>=now.getHours()*60+now.getMinutes())||next[0];
+        const focusHour=nextItem?Math.floor(M.interval(nextItem).start/60):Math.max(0,now.getHours()-1);
+        const row=hours.querySelector('[data-drop-hour="'+focusHour+'"]');
+        hours.scrollTop=Math.max(0,focusHour*(row?.offsetHeight||52)-52);
+      }
+    }
     host.querySelectorAll('.n2-card').forEach(el=>{if(opened.has(el.dataset.drag))el.querySelector('details').open=true;});
     host.querySelectorAll('[data-drop-status]').forEach(el=>{el.querySelector('.n2-column-tasks').scrollTop=columnScroll.get(el.dataset.dropStatus)||0;});
     if(changedScene){
@@ -181,11 +196,42 @@
     const other=tasks.filter(t=>!t.completed&&t.date!==today).length;
     return `<section class="n2-my-day"><h3>${tr('مهام اليوم','Today’s tasks')} <small>${esc(today)}</small></h3>${active.length?active.map(card).join(''):`<div class="n2-welcome"><h3>${tr(day.length?'أنجزت مهام اليوم 🎉':'يومك يبدأ بمهمة واحدة',day.length?'Today’s tasks are done 🎉':'Start with one task')}</h3><p>${tr('اضغط «+ مهمة» بالأعلى، اكتب اسمها وحدد موعدها، ثم احفظ. باقي التفاصيل اختيارية.','Select “+ Task” above, enter a name and date, then save. Everything else is optional.')}</p></div>`}${other?`<p><button data-view="board">${tr('مهام أخرى لم تُنجز بعد','Other unfinished tasks')} (${other})</button></p>`:''}${done.length?`<details class="n2-completed"><summary>${tr('تم إنجازها اليوم','Completed today')} (${done.length})</summary>${done.map(card).join('')}</details>`:''}</section>`;
   }
+
+  function scheduleGrid(day,date,compact=false){
+    const mode=compact?'compact':'full';
+    return `<div class="n2-hours ${compact?'n2-hours-compact':''}" data-schedule-mode="${mode}" data-schedule-date="${esc(date)}" aria-label="${tr('ساعات اليوم','Hours of the day')}" tabindex="0">${
+      Array.from({length:24},(_,hour)=>`
+        <div class="n2-hour" data-drop-hour="${hour}">
+          <button type="button" data-hour="${hour}" aria-label="${tr('أضف مهمة عند','Add task at')} ${String(hour).padStart(2,'0')}:00">${String(hour).padStart(2,'0')}:00</button>
+          <div>${day.filter(t=>M.interval(t)&&Math.floor(M.interval(t).start/60)===hour)
+            .sort((a,b)=>a.time.localeCompare(b.time))
+            .map(t=>`<div class="n2-event-wrap">
+              <button type="button" draggable="true" data-drag="${esc(t.id)}" class="n2-event ${t.completed?'n2-muted':''}" data-edit="${esc(t.id)}">${esc(t.time)}${t.endTime?' – '+esc(t.endTime):''} · ${esc(t.title)} ${day.some(o=>o.id!==t.id&&!o.completed&&!t.completed&&M.overlap(t,o))?tr('⚠ تعارض','⚠ Overlap'):''}</button>
+              <button type="button" class="n2-resize" draggable="true" data-resize="${esc(t.id)}" data-edit="${esc(t.id)}" aria-label="${tr('تغيير نهاية المهمة','Change task end')}" title="${tr('اسحب لتغيير النهاية أو اضغط للتعديل','Drag to resize or tap to edit')}">↕</button>
+            </div>`).join('')}
+          </div>
+        </div>`).join('')
+    }</div>`;
+  }
+  function compactTodaySchedule(){
+    const date=formatDate(new Date());
+    const day=tasks.filter(t=>t.date===date);
+    const unscheduled=day.filter(t=>!M.interval(t));
+    return `<section class="n2-compact-planner" aria-label="${tr('جدول مواعيد اليوم','Today’s hourly schedule')}">
+      <div class="n2-compact-heading">
+        <h3>🕒 ${tr('جدول مواعيد اليوم','Today’s schedule')}</h3>
+        <span>${esc(date)}</span>
+      </div>
+      <p class="n2-compact-hint">${tr('اضغط على الساعة لإضافة مهمة، أو على المهمة لتعديلها.','Tap an hour to add a task, or a task to edit it.')}</p>
+      ${unscheduled.length?`<div class="n2-unscheduled">${unscheduled.map(card).join('')}</div>`:''}
+      ${scheduleGrid(day,date,true)}
+    </section>`;
+  }
   function planner(list,date){
     const day=list.filter(t=>t.date===date);
-    return `<div class="n2-toolbar"><button data-day="-1" aria-label="${tr('اليوم السابق','Previous day')}">−</button><label>${tr('اليوم','Day')}<input type="date" id="n2Date" value="${date}"></label><button data-day="1" aria-label="${tr('اليوم التالي','Next day')}">+</button></div>
-      <p class="n2-hint">${tr('اسحب المهمة لساعة كاملة أو اسحب ↕ لتغيير النهاية. من ٤ لـ٥ مباشرة، بدون أرباع ساعة. اضغط للتعديل. اضغط على الساعة لإضافة مهمة. المهام القديمة دون نهاية تظهر لمدة ٣٠ دقيقة تقديرية.','Drag a task or its ↕ end handle to a whole hour. From 4 to 5 directly, with no quarter-hour steps. Click to edit. Select an hour to add a task. Legacy tasks without an end appear with an estimated 30-minute duration.')}</p>
-      <div>${day.filter(t=>!M.interval(t)).map(card).join('')}</div><div class="n2-hours">${Array.from({length:24},(_,h)=>`<div class="n2-hour" data-drop-hour="${h}"><button data-hour="${h}" aria-label="${tr('أضف مهمة عند','Add task at')} ${h}:00">${String(h).padStart(2,'0')}:00</button><div>${day.filter(t=>M.interval(t)&&Math.floor(M.interval(t).start/60)===h).sort((a,b)=>a.time.localeCompare(b.time)).map(t=>`<div class="n2-event-wrap"><button draggable="true" data-drag="${esc(t.id)}" class="n2-event ${t.completed?'n2-muted':''}" data-edit="${esc(t.id)}">${esc(t.time)}–${esc(t.endTime||'≈30m')} · ${esc(t.title)} ${day.some(o=>o.id!==t.id&&!o.completed&&!t.completed&&M.overlap(t,o))?tr('⚠ تعارض','⚠ Overlap'):''}<small> · ${M.interval(t).end-M.interval(t).start} ${tr('دقيقة','min')}</small></button><button class="n2-resize" draggable="true" data-resize="${esc(t.id)}" data-edit="${esc(t.id)}" aria-label="${tr('تغيير نهاية المهمة','Change task end')}" title="${tr('اسحب إلى وقت النهاية أو اضغط للتعديل','Drag to end time or click to edit')}">↕</button></div>`).join('')}</div></div>`).join('')}</div>`;
+    return `<div class="n2-toolbar"><button type="button" data-day="-1" aria-label="${tr('اليوم السابق','Previous day')}">−</button><label>${tr('اليوم','Day')}<input type="date" id="n2Date" value="${esc(date)}"></label><button type="button" data-day="1" aria-label="${tr('اليوم التالي','Next day')}">+</button></div>
+      <p class="n2-hint">${tr('اضغط على الساعة لإضافة مهمة، أو اسحب المهام لتغيير موعدها، أو اضغط للتعديل.','Tap an hour to add a task, drag tasks to reschedule, or tap to edit.')}</p>
+      <div>${day.filter(t=>!M.interval(t)).map(card).join('')}</div>${scheduleGrid(day,date)}`;
   }
   function board(list){
     list=list.filter(t=>M.visibleTask(t,formatDate(new Date())));
@@ -252,7 +298,8 @@
     if(target.dataset.dropStatus){if(!action.resize)status(task,target.dataset.dropStatus);return;}
     const minute=Number(target.dataset.dropHour)*60;
     try{
-      const next=action.resize?M.resize(task,minute):M.reschedule(task,formatDate(selectedDate),minute);
+      const date=target.closest('[data-schedule-date]')?.dataset.scheduleDate||formatDate(selectedDate);
+      const next=action.resize?M.resize(task,minute):M.reschedule(task,date,minute);
       Object.assign(task,next);saveTasks();showToast(tr('تم تحديث الموعد','Schedule updated'),'success');
     }catch(error){showToast(tr('اختار نهاية بعد البداية، داخل نفس اليوم','Choose an end after the start, within the same day'),'error');}
   });
