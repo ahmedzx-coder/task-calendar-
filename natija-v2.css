@@ -51,3 +51,79 @@ input[type="date"],input[type="time"]{cursor:pointer}
 @media(max-width:600px){
   #natijaWorkspace > .sidebar.n2-home-widgets { gap: 14px; margin-top: 14px; }
 }
+
+
+/* A compact, scrollable hourly planner inside My Day. The full Calendar view
+   keeps its normal 24-hour layout, while both views share the same task data. */
+#natijaWorkspace .n2-compact-planner {
+  margin: 12px 0 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--surface-2);
+  min-width: 0;
+}
+#natijaWorkspace .n2-compact-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+#natijaWorkspace .n2-compact-heading h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+#natijaWorkspace .n2-compact-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+#natijaWorkspace .n2-compact-hint {
+  margin: 6px 0 12px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+#natijaWorkspace .n2-hours-compact {
+  max-height: min(300px, 44dvh);
+  background: var(--surface);
+  scroll-behavior: auto;
+}
+#natijaWorkspace .n2-hours-compact .n2-hour {
+  min-height: 52px;
+  grid-template-columns: 62px minmax(0, 1fr);
+}
+#natijaWorkspace .n2-hours-compact .n2-hour > button {
+  font-size: 12px;
+  padding: 4px;
+  font-variant-numeric: tabular-nums;
+}
+#natijaWorkspace .n2-hours-compact .n2-hour > div {
+  padding: 3px 6px;
+  min-width: 0;
+}
+#natijaWorkspace .n2-hours-compact .n2-event-wrap {
+  gap: 4px;
+}
+#natijaWorkspace .n2-hours-compact .n2-event {
+  font-size: 12px;
+  line-height: 1.4;
+  min-width: 0;
+  padding: 7px 8px;
+  overflow-wrap: anywhere;
+}
+#natijaWorkspace .n2-hours-compact .n2-resize {
+  min-width: 33px;
+  padding: 4px;
+}
+#natijaWorkspace .n2-unscheduled { margin-bottom: 10px; }
+@media(max-width:600px) {
+  #natijaWorkspace .n2-compact-planner { margin: 10px 0 14px; padding: 11px; border-radius: 13px; }
+  #natijaWorkspace .n2-compact-heading h3 { font-size: 15px; }
+  #natijaWorkspace .n2-hours-compact { max-height: min(270px, 40dvh); }
+  #natijaWorkspace .n2-hours-compact .n2-hour { grid-template-columns: 54px minmax(0,1fr); min-height: 48px; }
+  #natijaWorkspace .n2-hours-compact .n2-hour > button { font-size: 11px; }
+}
