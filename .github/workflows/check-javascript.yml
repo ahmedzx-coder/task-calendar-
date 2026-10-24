@@ -41,6 +41,7 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund jsdom@26.1.0
           node tests/live-save-smoke.cjs
+          node tests/back-navigation.test.cjs
       - name: Check inline app JavaScript
         run: |
           node - <<'NODE'
