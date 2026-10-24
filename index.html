@@ -240,6 +240,9 @@
     }
     html[dir="rtl"] .header { flex-direction: row-reverse; }
     .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-home { display:flex;align-items:center;gap:12px;border:0;padding:5px;margin:-5px;border-radius:12px;background:transparent;color:inherit;text-align:start;cursor:pointer; }
+    .brand-home:hover { background:var(--surface-2); }
+    .brand-home:focus-visible { outline:3px solid var(--jade);outline-offset:4px; }
     .brand-mark { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(255, 255, 255, .14); }
     .header h1 { font-size: 19px; font-weight: 700; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -901,8 +904,10 @@
   <div class="container">
     <header class="header">
       <div class="brand">
-        <img class="brand-mark" src="icons/icon-192.png" alt="" width="34" height="34">
-        <h1 id="appTitle">نتيجة</h1>
+        <button type="button" id="brandHomeBtn" class="brand-home" onclick="goNatijaHome()" aria-label="الرجوع للرئيسية" title="الرئيسية">
+          <img class="brand-mark" src="icons/icon-192.png" alt="" width="34" height="34">
+          <h1 id="appTitle">نتيجة</h1>
+        </button>
       </div>
       <button id="menuToggleBtn" class="menu-toggle-btn" onclick="toggleMainMenu()" aria-label="القائمة" aria-haspopup="true" aria-expanded="false" aria-controls="mainMenu">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -1157,6 +1162,10 @@
         <select id="alarmSoundSelect">
           <option value="beep1">منبه بسيط 1</option>
           <option value="beep2">منبه متدرج 2</option>
+          <option value="gentle">نغمة هادئة</option>
+          <option value="chime">جرس موسيقي</option>
+          <option value="digital">تنبيه رقمي</option>
+          <option value="urgent">تنبيه متكرر</option>
           <option value="customAlarm">ملف مخصص</option>
           <option value="none">بدون صوت</option>
         </select>
@@ -1169,6 +1178,9 @@
         <label id="labelCompleteSound">صوت الإنجاز:</label>
         <select id="completeSoundSelect">
           <option value="beepSuccess">صوت إنجاز افتراضي</option>
+          <option value="successChime">إنجاز موسيقي</option>
+          <option value="successSparkle">لمعة نجاح</option>
+          <option value="successPop">نغمة سريعة</option>
           <option value="customComplete">ملف مخصص</option>
           <option value="none">بدون صوت</option>
         </select>
@@ -1412,12 +1424,12 @@
           ['Work 💼','Personal 🏠','Study 📚','Health 💪','Other ⭐']
         ],
         alarmSoundSelect: [
-          ['منبه بسيط 1','منبه متدرج 2','ملف مخصص','بدون صوت'],
-          ['Simple alarm 1','Ascending alarm 2','Custom audio','No sound']
+          ['منبه بسيط 1','منبه متدرج 2','نغمة هادئة','جرس موسيقي','تنبيه رقمي','تنبيه متكرر','ملف مخصص','بدون صوت'],
+          ['Simple alarm 1','Ascending alarm 2','Gentle tone','Musical chime','Digital alert','Repeating alert','Custom audio','No sound']
         ],
         completeSoundSelect: [
-          ['صوت إنجاز افتراضي','ملف مخصص','بدون صوت'],
-          ['Default completion sound','Custom audio','No sound']
+          ['صوت إنجاز افتراضي','إنجاز موسيقي','لمعة نجاح','نغمة سريعة','ملف مخصص','بدون صوت'],
+          ['Default completion sound','Success chime','Sparkle','Quick pop','Custom audio','No sound']
         ]
       };
       for(const [id, translations] of Object.entries(selectTranslations)){
@@ -1464,6 +1476,8 @@
         const el = document.getElementById(id);
         if(el) el.textContent = value;
       }
+      const homeButton = document.getElementById('brandHomeBtn');
+      if(homeButton){const label=isAr?'العودة للرئيسية':'Go to home';homeButton.setAttribute('aria-label',label);homeButton.title=label;}
       const editClose = document.getElementById('editTaskCloseBtn');
       if(editClose) editClose.setAttribute('aria-label', isAr ? 'إغلاق تعديل المهمة' : 'Close edit task');
       const nav = document.getElementById('mainMenu');
@@ -1568,40 +1582,49 @@
       osc.stop(time+duration+0.05);
     }
 
-    function playAlarmSound(){
-      if(soundSettings.alarmSound === 'none') return;
-      if(soundSettings.alarmSound === 'customAlarm' && soundSettings.customAlarmDataUrl){
+    function playAlarmSound(choice = soundSettings.alarmSound){
+      if(choice === 'none') return;
+      if(choice === 'customAlarm' && soundSettings.customAlarmDataUrl){
         new Audio(soundSettings.customAlarmDataUrl).play().catch(()=>{});
         return;
       }
       const ctx = getAudioContext();
       if(!ctx) return;
-      const now = ctx.currentTime;
-      if(soundSettings.alarmSound === 'beep1'){
+      if(ctx.state === 'suspended')ctx.resume().catch(()=>{});
+      const now = ctx.currentTime + 0.03;
+      if(choice === 'beep1'){
         playBeep(ctx, now, 800, 0.25, 0.2);
         playBeep(ctx, now+0.35, 800, 0.25, 0.2);
-      } else if(soundSettings.alarmSound === 'beep2'){
-        playBeep(ctx, now, 600, 0.2, 0.18);
-        playBeep(ctx, now+0.25, 900, 0.2, 0.18);
+      } else if(choice === 'beep2'){
+        playBeep(ctx,now,600,0.2,0.18);playBeep(ctx,now+0.25,900,0.2,0.18);
+      } else if(choice === 'gentle'){
+        [523,659,784].forEach((v,i)=>playBeep(ctx,now+i*0.19,v,0.34,0.09));
+      } else if(choice === 'chime'){
+        [659,880,1047,880].forEach((v,i)=>playBeep(ctx,now+i*0.18,v,0.29,0.11));
+      } else if(choice === 'digital'){
+        [1050,1050,1450].forEach((v,i)=>playBeep(ctx,now+i*0.16,v,0.12,0.13));
+      } else if(choice === 'urgent'){
+        [0,0.3,0.6,0.9].forEach(offset=>{playBeep(ctx,now+offset,760,0.11,0.15);playBeep(ctx,now+offset+0.13,980,0.11,0.15);});
       }
     }
 
-    function playCompleteSound(){
-      if(soundSettings.completeSound === 'none') return;
-      if(soundSettings.completeSound === 'customComplete' && soundSettings.customCompleteDataUrl){
+    function playCompleteSound(choice = soundSettings.completeSound){
+      if(choice === 'none') return;
+      if(choice === 'customComplete' && soundSettings.customCompleteDataUrl){
         new Audio(soundSettings.customCompleteDataUrl).play().catch(()=>{});
         return;
       }
       const ctx = getAudioContext();
       if(!ctx) return;
-      const now = ctx.currentTime;
-      playBeep(ctx, now, 600, 0.15, 0.18);
-      playBeep(ctx, now+0.2, 900, 0.18, 0.2);
-      playBeep(ctx, now+0.4, 1200, 0.25, 0.22);
+      if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+      const now=ctx.currentTime+0.03;
+      const notes=choice==='successChime'?[523,659,784,1047]:choice==='successSparkle'?[988,1319,1568,2093]:choice==='successPop'?[880,1175]:[600,900,1200];
+      const gap=choice==='successPop'?0.12:0.17;
+      notes.forEach((v,i)=>playBeep(ctx,now+i*gap,v,choice==='successPop'?0.1:0.22,0.14));
     }
 
-    function testAlarmSound(){ playAlarmSound(); }
-    function testCompleteSound(){ playCompleteSound(); }
+    function testAlarmSound(){ playAlarmSound(document.getElementById('alarmSoundSelect').value); }
+    function testCompleteSound(){ playCompleteSound(document.getElementById('completeSoundSelect').value); }
 
     // ================== حفظ/تحميل المهام ==================
     function saveTasks(shouldRender = true){
@@ -2366,6 +2389,20 @@
       currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1);
       renderCalendar();
     }
+    function goNatijaHome(){
+      closeMainMenu();
+      if(typeof closeEditTaskModal==='function')closeEditTaskModal();
+      if(typeof closeSoundModal==='function')closeSoundModal();
+      const now=new Date();
+      selectedDate=now;
+      currentDate=new Date(now.getFullYear(),now.getMonth(),1);
+      const input=document.getElementById('taskDate');
+      if(input)input.value=formatDate(now);
+      window.dispatchEvent(new Event('natija-go-home'));
+      renderCalendar();renderTasks();renderTodayTasks();renderTimeline();
+      window.scrollTo({top:0,behavior:'auto'});
+    }
+
     function goToday(){
       pendingGridAnim = 'anim-in';
       pendingPopDate = formatDate(new Date());
