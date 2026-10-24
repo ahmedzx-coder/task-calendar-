@@ -57,6 +57,13 @@ try {
   host.querySelector('[data-view="board"]').click();
   host.querySelector('[data-view="today"]').click();
   checkMyDaySections();
+  // The new home schedule shows 24 hours in its own small scroll area.
+  // It must not duplicate the existing timeline widget.
+  const compact=host.querySelector('.n2-compact-planner .n2-hours-compact');
+  assert.ok(compact,'Compact hourly calendar must appear in My Day');
+  assert.equal(compact.querySelectorAll('.n2-hour').length,24,'All hours accessible via scrolling');
+  assert.match(compact.dataset.scheduleDate,/^\\d{4}-\\d{2}-\\d{2}$/,'Date stored on schedule for rescheduling');
+  assert.doesNotMatch(compact.textContent,/≈30m|٣٠ دقيقة تقديرية|estimated 30/,'No confusing estimated 30-minute labels');
 
   // Adding a task for tomorrow while My Day is selected should immediately
   // navigate to its scheduled day rather than appearing to fail.
@@ -78,6 +85,20 @@ try {
   assert.match(host.textContent,/Live Save Task/,'Task shown immediately without reload');
   assert.equal(host.querySelector('[data-view="planner"]')?.getAttribute('aria-pressed'),'true',
     'App navigates to saved task date');
+
+  // Tasks created today must appear in the compact hourly schedule immediately.
+  host.querySelector('[data-view="today"]').click();
+  const today=new Date();
+  const todayDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+  w.document.getElementById('taskTitle').value='Hourly Home Task';
+  w.document.getElementById('taskDate').value=todayDate;
+  w.document.getElementById('taskTime').value='08:00';
+  w.addTask();
+  const hour8=host.querySelector('.n2-hours-compact [data-drop-hour="8"] .n2-event');
+  assert.ok(hour8,'Saved task appears in its correct hour without reload');
+  assert.match(hour8.textContent,/Hourly Home Task/);
+  assert.doesNotMatch(hour8.textContent,/≈30m|30 min|٣٠ دقيقة/);
+  assert.ok(host.querySelector(':scope > .sidebar.n2-home-widgets'),'Stats and task widgets stay available');
 
   // Project creation should show a project card/heading instantly too.
   host.querySelector('[data-view="projects"]').click();
