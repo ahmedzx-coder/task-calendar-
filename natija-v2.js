@@ -13,6 +13,9 @@
     motions.set(el,el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:220,delay,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'}));
   }
   const tr=(ar,en)=>currentLang==='ar'?ar:en;
+  // Reuse (rather than clone) the existing stats/task/search/timeline widgets.
+  // Moving the original sidebar preserves element IDs, handlers and live updates.
+  const todaySidebar=document.querySelector('.sidebar');
   const host=document.createElement('section'); host.className='n2'; host.id='natijaWorkspace';
   document.querySelector('.calendar-grid').closest('section').after(host);
   const composer=document.createElement('section');composer.className='n2 n2-compose hidden';
@@ -128,6 +131,9 @@
     return `<button class="n2-back" data-projects-back>${tr('← كل المشروعات','← All projects')}</button><section class="n2-project-detail"><h3>${esc(p.title)}</h3><p class="n2-description">${esc(p.description||tr('أضف وصفًا من تعديل المشروع.','Add a description using Edit project.'))}</p><p>${tr('موعد التسليم','Due date')}: ${esc(p.dueDate||'—')} ${overdue?tr('· متأخر','· Overdue'):''}</p><label>${tr('الإنجاز','Progress')}: ${progress.done}/${progress.total} (${progress.percent}%)<progress max="100" value="${progress.percent}"></progress></label></section>${board(tasks.filter(t=>t.projectId===p.id))}`;
   }
   function draw(){
+    // Before replacing the workspace HTML, rescue the actual sidebar.
+    // Otherwise innerHTML would permanently destroy its controls and listeners.
+    if(todaySidebar && todaySidebar.parentElement===host)host.after(todaySidebar);
     const scene=[view,filter,formatDate(selectedDate),projectEditor===null?'closed':'editing',boardQuery].join('|');
     const changedScene=scene!==renderedScene;
     const oldCards=new Map([...host.querySelectorAll('[data-drag]')].map(el=>[el.dataset.drag,el.textContent+'|'+el.closest('[data-drop-status]')?.dataset.dropStatus]));
@@ -147,6 +153,12 @@
       <div class="n2-toolbar n2-actions">${view==='projects'?`<button data-new-project>${tr('+ مشروع جديد','+ New project')}</button>${filter?`<button data-rename>${tr('تعديل المشروع','Edit project')}</button><button data-new-task>${tr('+ مهمة للمشروع','+ Project task')}</button>`:''}`:`${view==='board'?`<label>${tr('تصفية بالمشروع','Filter by project')}<select id="n2Filter">${options(filter,true)}</select></label>`:''}<button data-new-task>${tr('+ مهمة','+ Task')}</button>`}</div>
       ${projectEditor!==null?`<form id="n2ProjectForm" class="n2-toolbar"><label>${tr('اسم المشروع','Project name')}<input id="n2ProjectName" required maxlength="120" value="${esc(projectEditor.title||'')}"></label><label>${tr('وصف المشروع','Description')}<textarea id="n2ProjectDescription" maxlength="2000">${esc(projectEditor.description||'')}</textarea></label><label>${tr('موعد التسليم','Due date')}<input type="date" id="n2ProjectDue" value="${esc(projectEditor.dueDate||'')}"></label><button type="submit">${tr('حفظ المشروع','Save project')}</button><button type="button" data-cancel-project>${tr('إلغاء','Cancel')}</button></form>`:''}
       ${view==='today'?todayPage():view==='planner'?planner(list,date):view==='projects'?projectPage():board(list)}`;
+    if(todaySidebar && view==='today'){
+      host.append(todaySidebar);
+      todaySidebar.classList.add('n2-home-widgets');
+    }else if(todaySidebar){
+      todaySidebar.classList.remove('n2-home-widgets');
+    }
     const hours=host.querySelector('.n2-hours');if(hours)hours.scrollTop=scrollTop;
     host.querySelectorAll('.n2-card').forEach(el=>{if(opened.has(el.dataset.drag))el.querySelector('details').open=true;});
     host.querySelectorAll('[data-drop-status]').forEach(el=>{el.querySelector('.n2-column-tasks').scrollTop=columnScroll.get(el.dataset.dropStatus)||0;});
