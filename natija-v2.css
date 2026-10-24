@@ -127,3 +127,60 @@ input[type="date"],input[type="time"]{cursor:pointer}
   #natijaWorkspace .n2-hours-compact .n2-hour { grid-template-columns: 54px minmax(0,1fr); min-height: 48px; }
   #natijaWorkspace .n2-hours-compact .n2-hour > button { font-size: 11px; }
 }
+
+
+/* AM/PM half-day selector on the compact My Day schedule. */
+#natijaWorkspace .n2-period-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 12px 0 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+#natijaWorkspace .n2-period-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+#natijaWorkspace .n2-period-switch button[aria-pressed="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--jade);
+  box-shadow: 0 1px 5px rgba(0,0,0,.08);
+}
+#natijaWorkspace .n2-period-switch button:focus-visible {
+  outline: 3px solid var(--jade);
+  outline-offset: 2px;
+}
+#natijaWorkspace .n2-period-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 23px;
+  min-height: 23px;
+  padding-inline: 5px;
+  border-radius: 30px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 700;
+}
+#natijaWorkspace .n2-period-switch button[aria-pressed="true"] .n2-period-count {
+  border-color: var(--jade);
+}
+@media(max-width:600px) {
+  #natijaWorkspace .n2-period-switch { margin-block: 9px 4px; }
+  #natijaWorkspace .n2-period-switch button { min-height: 40px; padding: 5px 8px; }
+}
