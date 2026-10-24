@@ -1248,6 +1248,29 @@
     let lastAddedTaskId = null;   // المهمة الجديدة تدخل بحركة
     let editingTaskId = null;
     let editReturnFocus = null;
+    // The temporary same-page history entry lets mobile / mouse Back dismiss
+    // the editor instead of leaving Natija.
+    let editHistoryMarker = null;
+    let editHistorySequence = 0;
+    function registerEditHistory(){
+      if(editHistoryMarker !== null) return;
+      const marker = 'natija-edit-' + Date.now() + '-' + (++editHistorySequence);
+      try {
+        const state = window.history.state && typeof window.history.state === 'object'
+          ? window.history.state : {};
+        window.history.pushState({...state, natijaEditMarker: marker}, '', window.location.href);
+        editHistoryMarker = marker;
+      } catch(error) {
+        console.warn('[Natija] Could not register edit navigation:', error);
+      }
+    }
+    window.addEventListener('popstate', function(){
+      // The browser already stepped back: never trigger another history.back().
+      if(editHistoryMarker !== null &&
+         (!window.history.state || window.history.state.natijaEditMarker !== editHistoryMarker)){
+        closeEditTaskModal(true);
+      }
+    });
     const completingIds = new Set();
     const reduceMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -2141,13 +2164,14 @@
       set('editTaskNotes', task.notes || '');
       updateDateTimeControlLabels();
       const modal = document.getElementById('editTaskModal');
+      if(!modal.classList.contains('active')) registerEditHistory();
       modal.classList.add('active');
       document.body.classList.add('task-edit-open');
       modal.querySelector('.modal-content').scrollTop = 0;
       document.getElementById('editTaskTitle').focus({ preventScroll: true });
     }
 
-    function closeEditTaskModal(){
+    function closeEditTaskModal(fromBrowserBack = false){
       const modal = document.getElementById('editTaskModal');
       if(!modal || !modal.classList.contains('active')) return;
       modal.classList.remove('active');
@@ -2155,6 +2179,13 @@
       editingTaskId = null;
       if(editReturnFocus && editReturnFocus.isConnected) editReturnFocus.focus({ preventScroll: true });
       editReturnFocus = null;
+      const marker = editHistoryMarker;
+      editHistoryMarker = null;
+      // X / Cancel / Save must clean their temporary history entry too.
+      if(!fromBrowserBack && marker !== null &&
+         window.history.state && window.history.state.natijaEditMarker === marker){
+        window.history.back();
+      }
     }
 
     function saveEditedTask(){
