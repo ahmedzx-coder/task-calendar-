@@ -30,3 +30,24 @@ input[type="date"],input[type="time"]{cursor:pointer}
   .main-menu.hidden{opacity:0;transform:translateX(14px)}
 }
 @media(prefers-reduced-motion:reduce){.n2-compose,.main-menu{transition:none!important}}
+
+/* My Day includes the original live sidebar widgets, not copied content.
+   Keep them single-column and full-width on phones and tablets. */
+#natijaWorkspace > .sidebar.n2-home-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 850px;
+  margin: 24px auto 4px;
+  grid-column: auto;
+  grid-row: auto;
+  min-width: 0;
+}
+#natijaWorkspace > .sidebar.n2-home-widgets > * { min-width: 0; }
+#natijaWorkspace > .sidebar.n2-home-widgets .stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media(max-width:600px){
+  #natijaWorkspace > .sidebar.n2-home-widgets { gap: 14px; margin-top: 14px; }
+}
